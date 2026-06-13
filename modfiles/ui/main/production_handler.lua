@@ -78,7 +78,7 @@ local function handle_line_recipe_click(player, tags, action)
         util.gui.run_refresh(player, "factory")
 
     elseif action == "factoriopedia" then
-        player.open_factoriopedia_gui(prototypes["recipe"][relevant_line.recipe.proto.name])
+        util.open_recipebook_gui(player, prototypes["recipe"][relevant_line.recipe.proto.name])
     end
 end
 
@@ -99,7 +99,7 @@ local function handle_floor_recipe_click(player, tags, action)
         util.gui.run_refresh(player, "factory")
 
     elseif action == "factoriopedia" then
-        player.open_factoriopedia_gui(prototypes["recipe"][line.recipe.proto.name])
+        util.open_recipebook_gui(player, prototypes["recipe"][line.recipe.proto.name])
     end
 end
 
@@ -137,7 +137,7 @@ local function handle_machine_click(player, tags, action)
         util.clipboard.paste(player, machine)
 
     elseif action == "factoriopedia" then
-        player.open_factoriopedia_gui(prototypes["entity"][machine.proto.name])
+        util.open_recipebook_gui(player, prototypes["entity"][machine.proto.name])
     end
 end
 
@@ -179,7 +179,7 @@ local function handle_beacon_click(player, tags, action)
         util.gui.run_refresh(player, "factory")
 
     elseif action == "factoriopedia" then
-        player.open_factoriopedia_gui(prototypes["entity"][beacon.proto.name])
+        util.open_recipebook_gui(player, prototypes["entity"][beacon.proto.name])
     end
 end
 
@@ -225,7 +225,7 @@ local function handle_module_click(player, tags, action)
         util.gui.run_refresh(player, "factory")
 
     elseif action == "factoriopedia" then
-        player.open_factoriopedia_gui(prototypes["item"][module.proto.name])
+        util.open_recipebook_gui(player, prototypes["item"][module.proto.name])
     end
 end
 
@@ -326,7 +326,7 @@ local function handle_item_click(player, tags, action)
     elseif action == "factoriopedia" then
         local name = item.proto.name
         if item.proto.temperature then name = item.proto.base_name end
-        player.open_factoriopedia_gui(prototypes[item.proto.type][name])
+        util.open_recipebook_gui(player, prototypes[item.proto.type][name])
     end
 end
 
@@ -370,7 +370,7 @@ local function handle_fuel_click(player, tags, action)
         util.cursor.handle_item_click(player, fuel.proto, fuel.amount)
 
     elseif action == "factoriopedia" then
-        player.open_factoriopedia_gui(prototypes[fuel.proto.type][fuel.proto.name])
+        util.open_recipebook_gui(player, prototypes[fuel.proto.type][fuel.proto.name])
     end
 end
 

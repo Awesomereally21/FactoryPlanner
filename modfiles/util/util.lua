@@ -73,4 +73,11 @@ function _util.get_recipe_productivity(force, recipe_name)
     return math.floor(bonus * MAGIC_NUMBERS.effect_precision + 1e-4)
 end
 
+-- This function is only called when Factory Search is active, so no need to check for the mod
+---@param player LuaPlayer
+---@param prototype LuaEntityPrototype|LuaEquipmentPrototype|LuaFluidPrototype|LuaItemPrototype|LuaRecipePrototype|LuaTilePrototype
+function _util.open_recipebook_gui(player, prototype)
+    remote.call("RecipeBook", "open_page", player.index, prototype)
+end
+
 return _util
