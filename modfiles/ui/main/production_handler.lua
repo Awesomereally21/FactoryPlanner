@@ -136,6 +136,9 @@ local function handle_machine_click(player, tags, action)
     elseif action == "paste" then
         util.clipboard.paste(player, machine)
 
+    elseif action == "factorysearch" then
+        util.open_in_factorysearch(player, "entity", machine.proto.name)
+
     elseif action == "factoriopedia" then
         util.open_recipebook_gui(player, prototypes["entity"][machine.proto.name])
     end
@@ -177,6 +180,9 @@ local function handle_beacon_click(player, tags, action)
         line:set_beacon(nil)
         solver.update(player)
         util.gui.run_refresh(player, "factory")
+
+    elseif action == "factorysearch" then
+        util.open_in_factorysearch(player, "item", beacon.proto.name)
 
     elseif action == "factoriopedia" then
         util.open_recipebook_gui(player, prototypes["entity"][beacon.proto.name])
@@ -223,6 +229,9 @@ local function handle_module_click(player, tags, action)
         module_set:normalize({effects=true})
         solver.update(player)
         util.gui.run_refresh(player, "factory")
+
+    elseif action == "factorysearch" then
+        util.open_in_factorysearch(player, "item", module.proto.name)
 
     elseif action == "factoriopedia" then
         util.open_recipebook_gui(player, prototypes["item"][module.proto.name])
@@ -323,6 +332,11 @@ local function handle_item_click(player, tags, action)
     elseif action == "add_to_cursor" then
         util.cursor.handle_item_click(player, item.proto, item.amount)
 
+    elseif action == "factorysearch" then
+        local name = item.proto.name
+        if item.proto.temperature then name = item.proto.base_name end
+        util.open_in_factorysearch(player, item.proto.type, name)
+
     elseif action == "factoriopedia" then
         local name = item.proto.name
         if item.proto.temperature then name = item.proto.base_name end
@@ -369,6 +383,9 @@ local function handle_fuel_click(player, tags, action)
     elseif action == "add_to_cursor" then
         util.cursor.handle_item_click(player, fuel.proto, fuel.amount)
 
+    elseif action == "factorysearch" then
+        util.open_in_factorysearch(player, fuel.proto.type, fuel.proto.name)
+
     elseif action == "factoriopedia" then
         util.open_recipebook_gui(player, prototypes[fuel.proto.type][fuel.proto.name])
     end
@@ -413,6 +430,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 add_to_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_machine_click
@@ -429,6 +447,7 @@ listeners.gui = {
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 delete = {shortcut="control-right", limitations={archive_open=false}},
                 add_to_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},        
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_beacon_click
@@ -444,6 +463,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 delete = {shortcut="control-right", limitations={archive_open=false}},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_module_click
@@ -454,6 +474,7 @@ listeners.gui = {
                 prioritize = {shortcut="left", limitations={archive_open=false, matrix_active=false}, show=true},
                 copy = {shortcut="shift-right"},
                 add_to_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = (function(player, tags, action)
@@ -468,6 +489,7 @@ listeners.gui = {
                 add_recipe_below = {limitations={archive_open=false, matrix_active=true}},
                 copy = {shortcut="shift-right"},
                 add_to_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = (function(player, tags, action)
@@ -495,6 +517,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 add_to_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = (function(player, tags, action)
@@ -512,6 +535,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 add_to_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_fuel_click

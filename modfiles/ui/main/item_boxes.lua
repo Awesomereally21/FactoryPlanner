@@ -183,6 +183,10 @@ local function handle_item_button_click(player, tags, action)
         local amount = (item.class == "Product") and item:get_required_amount() or item.amount
         util.cursor.handle_item_click(player, item.proto, amount)
 
+    elseif action == "factorysearch" then
+        local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
+        util.open_in_factorysearch(player, item.proto.type, name)
+
     elseif action == "factoriopedia" then
         local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
         util.open_recipebook_gui(player, prototypes[item.proto.type][name])
@@ -286,6 +290,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 add_to_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_item_button_click

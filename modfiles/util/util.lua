@@ -80,4 +80,12 @@ function _util.open_recipebook_gui(player, prototype)
     remote.call("RecipeBook", "open_page", player.index, prototype)
 end
 
+-- This function is only called when Factory Search is active, so no need to check for the mod
+---@param player LuaPlayer
+---@param type string
+---@param name string
+function _util.open_in_factorysearch(player, type, name)
+    remote.call("factory-search", "search", player, {type=type, name=name})
+end
+
 return _util
