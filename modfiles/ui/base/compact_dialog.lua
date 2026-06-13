@@ -440,6 +440,15 @@ local function build_compact_factory(player)
     -- View state
     local container_views = subheader.add{type="flow", direction="horizontal"}
     container_views.style.padding = {4, 4, 0, 0}
+
+    -- Timescale switch
+    local switch_state = (util.globals.preferences(player).timescale == 1) and "left" or "right"
+    local switch_timescale = container_views.add{type="switch", tooltip={"fp.timescale_tt"}, switch_state=switch_state,
+        left_label_caption={"", "/", {"fp.second"}}, right_label_caption={"", "/", {"fp.minute"}},
+        tags={mod="fp", on_gui_switch_state_changed="toggle_timescale"}}
+    switch_timescale.style.margin = {0, 4}
+
+    -- Push the remaining views to the right
     container_views.add{type="empty-widget", style="flib_horizontal_pusher"}
 
     local flow_views = container_views.add{type="flow", direction="horizontal"}
