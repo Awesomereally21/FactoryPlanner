@@ -137,7 +137,8 @@ local function handle_machine_click(player, tags, action)
         util.clipboard.paste(player, machine)
 
     elseif action == "factorysearch" then
-        util.open_in_factorysearch(player, "entity", machine.proto.name)
+        local name = util.get_placeable_item_from_entity(prototypes["entity"][machine.proto.name])
+        util.open_in_factorysearch(player, "item", name)
 
     elseif action == "factoriopedia" then
         util.open_recipebook_gui(player, prototypes["entity"][machine.proto.name])

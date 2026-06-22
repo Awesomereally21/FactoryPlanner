@@ -441,15 +441,15 @@ local function build_compact_factory(player)
     local container_views = subheader.add{type="flow", direction="horizontal"}
     container_views.style.padding = {4, 4, 0, 0}
 
+    -- Push the remaining views to the right
+    container_views.add{type="empty-widget", style="flib_horizontal_pusher"}
+
     -- Timescale switch
     local switch_state = (util.globals.preferences(player).timescale == 1) and "left" or "right"
     local switch_timescale = container_views.add{type="switch", tooltip={"fp.timescale_tt"}, switch_state=switch_state,
         left_label_caption={"", "/", {"fp.second"}}, right_label_caption={"", "/", {"fp.minute"}},
-        tags={mod="fp", on_gui_switch_state_changed="toggle_timescale"}}
+        tags={mod="fp", on_gui_switch_state_changed="compact_toggle_timescale"}}
     switch_timescale.style.margin = {0, 4}
-
-    -- Push the remaining views to the right
-    container_views.add{type="empty-widget", style="flib_horizontal_pusher"}
 
     local flow_views = container_views.add{type="flow", direction="horizontal"}
     compact_elements["views_flow"] = flow_views
@@ -568,7 +568,9 @@ local function handle_machine_click(player, tags, action)
     if action == "add_to_cursor" then
         util.cursor.set_entity(player, line, line.machine)
     elseif action == "factorysearch" then
-        util.open_in_factorysearch(player, "entity", line.machine.proto.name)
+        local entity = prototypes["entity"][line.machine.proto.name]
+        local name = util.get_placeable_item_from_entity(entity)
+        util.open_in_factorysearch(player, "item", name)
     elseif action == "factoriopedia" then
         util.open_recipebook_gui(player, prototypes["entity"][line.machine.proto.name])
     end
@@ -596,9 +598,11 @@ local function handle_item_click(player, tags, action)
         util.cursor.handle_item_click(player, item.proto, item.amount)
     elseif action == "factorysearch" then
         local name = item.proto.name
-        if item.proto.type == "entity" then name = name:gsub("custom%-", "")
+        if item.proto.type == "entity" then
+            name = name:gsub("custom%-", "")
+            name = util.get_placeable_item_from_entity(prototypes[item.proto.type][name])
         elseif item.proto.temperature then name = item.proto.base_name end
-        util.open_in_factorysearch(player, item.proto.type, name)
+        util.open_in_factorysearch(player, "item", name)
     elseif action == "factoriopedia" then
         local name = item.proto.name
         if item.proto.type == "entity" then name = name:gsub("custom%-", "")
@@ -711,6 +715,14 @@ factory_listeners.gui = {
                 relevant_line.done = not relevant_line.done
                 refresh_compact_factory(player)
             end)
+        },
+        {
+            name = "compact_toggle_timescale",
+            handler = (function(player, _, event)
+                local new_timescale = (event.element.switch_state == "left") and 1 or 60
+                util.globals.preferences(player).timescale = new_timescale
+
+            end)
         }
     },
     on_gui_hover = {
@@ -719,6 +731,7 @@ factory_listeners.gui = {
             handler = (function(player, tags, event)
                 handle_hover_change(player, tags, event)
                 main_dialog.set_tooltip(player, event.element)
+                refresh_compact_factory(player)
             end)
         }
     },
