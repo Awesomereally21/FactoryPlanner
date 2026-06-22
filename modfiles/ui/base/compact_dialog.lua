@@ -715,14 +715,6 @@ factory_listeners.gui = {
                 relevant_line.done = not relevant_line.done
                 refresh_compact_factory(player)
             end)
-        },
-        {
-            name = "compact_toggle_timescale",
-            handler = (function(player, _, event)
-                local new_timescale = (event.element.switch_state == "left") and 1 or 60
-                util.globals.preferences(player).timescale = new_timescale
-
-            end)
         }
     },
     on_gui_hover = {
@@ -739,6 +731,16 @@ factory_listeners.gui = {
         {
             name = "leave_compact_item",
             handler = handle_hover_change
+        }
+    },
+    on_gui_switch_state_changed = {
+        {
+            name = "compact_toggle_timescale",
+            handler = (function(player, _, event)
+                local new_timescale = (event.element.switch_state == "left") and 1 or 60
+                util.globals.preferences(player).timescale = new_timescale
+                refresh_compact_factory(player)
+            end)
         }
     }
 }
