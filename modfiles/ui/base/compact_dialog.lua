@@ -723,7 +723,6 @@ factory_listeners.gui = {
             handler = (function(player, tags, event)
                 handle_hover_change(player, tags, event)
                 main_dialog.set_tooltip(player, event.element)
-                refresh_compact_factory(player)
             end)
         }
     },
@@ -739,7 +738,10 @@ factory_listeners.gui = {
             handler = (function(player, _, event)
                 local new_timescale = (event.element.switch_state == "left") and 1 or 60
                 util.globals.preferences(player).timescale = new_timescale
-                refresh_compact_factory(player)
+
+                item_views.rebuild_data(player)
+                item_views.rebuild_interface(player)
+                util.gui.run_refresh(player, "factory")
             end)
         }
     }
