@@ -598,11 +598,13 @@ local function handle_item_click(player, tags, action)
         util.cursor.handle_item_click(player, item.proto, item.amount)
     elseif action == "factorysearch" then
         local name = item.proto.name
-        if item.proto.type == "entity" then
+        local type = item.proto.type
+        if type == "entity" then
             name = name:gsub("custom%-", "")
             name = util.get_placeable_item_from_entity(prototypes[item.proto.type][name])
+            type = "item"
         elseif item.proto.temperature then name = item.proto.base_name end
-        util.open_in_factorysearch(player, "item", name)
+        util.open_in_factorysearch(player, type, name)
     elseif action == "factoriopedia" then
         local name = item.proto.name
         if item.proto.type == "entity" then name = name:gsub("custom%-", "")
