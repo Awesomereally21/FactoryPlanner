@@ -426,6 +426,12 @@ local function refresh_compact_factory(player)
 
     refresh_compact_header(player, factory)
     refresh_compact_production(player, factory)
+
+    local switch = ui_state.compact_elements.timescale_switch
+    if switch and switch.valid then
+        local switch_state = (util.globals.preferences(player).timescale == 1) and "left" or "right"
+        switch.switch_state = switch_state
+    end
 end
 
 local function build_compact_factory(player)
@@ -450,6 +456,7 @@ local function build_compact_factory(player)
         left_label_caption={"", "/", {"fp.second"}}, right_label_caption={"", "/", {"fp.minute"}},
         tags={mod="fp", on_gui_switch_state_changed="compact_toggle_timescale"}}
     switch_timescale.style.margin = {0, 4}
+    compact_elements["timescale_switch"] = switch_timescale
 
     local flow_views = container_views.add{type="flow", direction="horizontal"}
     compact_elements["views_flow"] = flow_views
@@ -743,6 +750,7 @@ factory_listeners.gui = {
 
                 item_views.rebuild_data(player)
                 item_views.rebuild_interface(player)
+                util.gui.run_refresh(player, "compact_factory")
                 util.gui.run_refresh(player, "factory")
             end)
         }
