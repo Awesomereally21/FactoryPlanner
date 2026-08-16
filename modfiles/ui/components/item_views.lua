@@ -2,13 +2,28 @@ item_views = {}
 
 local processors = {}  -- individual functions for each kind of view state
 
+---@param metadata ItemViewsData
+---@param raw_amount number
+---@param item_proto FPItemPrototype | FPFuelPrototype
+---@return number? button_number
+---@return LocalisedString tooltip
 function processors.items_per_timescale(metadata, raw_amount, item_proto, _)
-    local number = util.format.number(raw_amount * metadata.timescale, metadata.formatting_precision)
-    local plural_parameter = (number == "1") and 1 or 2
+    local raw_number = raw_amount * metadata.timescale
+    local button_number = lib.format.button_number(raw_number)
+
+    local tooltip_number = lib.format.number(raw_number, metadata.formatting_precision)
+    local plural_parameter = (tooltip_number == "1") and 1 or 2
     local type_string = (item_proto.type == "fluid") and {"fp.l_fluid"} or {"fp.pl_item", plural_parameter}
-    return number, {"", number, " ", type_string, "/", metadata.timescale_string}
+    local tooltip = {"", tooltip_number, " ", type_string, "/", metadata.timescale_string}
+
+    return button_number, tooltip
 end
 
+---@param metadata ItemViewsData
+---@param raw_amount number
+---@param item_proto FPItemPrototype | FPFuelPrototype
+---@return number? button_number
+---@return LocalisedString tooltip
 function processors.throughput(metadata, raw_amount, item_proto, _)
     local raw_number, unit_name = nil, nil
 
@@ -17,107 +32,138 @@ function processors.throughput(metadata, raw_amount, item_proto, _)
         unit_name = "pump"
     else
         raw_number = raw_amount * metadata.throughput_multiplier
-        unit_name = metadata.belt_or_lane
+        unit_name = metadata.belts_or_lanes:sub(1, -2)
     end
 
-    local number = util.format.number(raw_number, metadata.formatting_precision)
-    local plural_parameter = (number == "1") and 1 or 2
-    local tooltip = {"", number, " ", {"fp.pl_" .. unit_name, plural_parameter}}
+    local button_number = lib.format.button_number(raw_number)
 
-    return number, tooltip
+    local tooltip_number = lib.format.number(raw_number, metadata.formatting_precision)
+    local plural_parameter = (tooltip_number == "1") and 1 or 2
+    local tooltip = {"", tooltip_number, " ", {"fp.pl_" .. unit_name, plural_parameter}}
+
+    return button_number, tooltip
 end
 
-function processors.items_per_second_per_machine(metadata, raw_amount, item_proto, machine_count)
-    local adjusted_count = (math.ceil((machine_count or 1) - 1e-6))
+---@param metadata ItemViewsData
+---@param raw_amount number
+---@param item_proto FPItemPrototype | FPFuelPrototype
+---@param machine_amount number?
+---@return number? button_number
+---@return LocalisedString? tooltip
+function processors.items_per_second_per_machine(metadata, raw_amount, item_proto, machine_amount)
+    local adjusted_count = (math.ceil((machine_amount or 1) - MAGIC_NUMBERS.margin_of_error))
     if adjusted_count == 0 then return 0, nil end  -- avoid division by zero
 
     local raw_number = raw_amount / adjusted_count
-    local number = util.format.number(raw_number, metadata.formatting_precision)
+    local button_number = lib.format.button_number(raw_number)
 
-    local plural_parameter = (number == "1") and 1 or 2
+    local tooltip_number = lib.format.number(raw_number, metadata.formatting_precision)
+    local plural_parameter = (tooltip_number == "1") and 1 or 2
     local type_string = (item_proto.type == "fluid") and {"fp.l_fluid"} or {"fp.pl_item", plural_parameter}
-    -- If machine_count is nil, this shouldn't show /machine
-    local per_machine = (machine_count ~= nil) and {"", "/", {"fp.pl_machine", 1}} or ""
-    local tooltip = {"", number, " ", type_string, "/", {"fp.second"}, per_machine}
+    -- If machine_amount is nil, this shouldn't show /machine
+    local per_machine = (machine_amount ~= nil) and {"", "/", {"fp.pl_machine", 1}} or ""
+    local tooltip = {"", tooltip_number, " ", type_string, "/", {"fp.second"}, per_machine}
 
-    return number, tooltip
+    return button_number, tooltip
 end
 
+---@param metadata ItemViewsData
+---@param raw_amount number
+---@param item_proto FPItemPrototype | FPFuelPrototype
+---@return number? button_number
+---@return LocalisedString tooltip
 function processors.stacks_per_timescale(metadata, raw_amount, item_proto, _)
     if item_proto.type == "fluid" then return nil, {"fp.fluid_item"} end
 
-    local raw_number = (raw_amount * metadata.timescale) / item_proto.stack_size
-    local number = util.format.number(raw_number, metadata.formatting_precision)
+    local raw_number = (raw_amount * metadata.timescale) / item_proto.stack_size--[[@as uint]]
+    local button_number = lib.format.button_number(raw_number)
 
-    local plural_parameter = (number == "1") and 1 or 2
-    local tooltip = {"", number, " ", {"fp.pl_stack", plural_parameter}, "/", metadata.timescale_string}
+    local tooltip_number = lib.format.number(raw_number, metadata.formatting_precision)
+    local plural_parameter = (tooltip_number == "1") and 1 or 2
+    local tooltip = {"", tooltip_number, " ", {"fp.pl_stack", plural_parameter}, "/", metadata.timescale_string}
 
-    return number, tooltip
+    return button_number, tooltip
 end
 
+---@param metadata ItemViewsData
+---@param raw_amount number
+---@param item_proto FPItemPrototype | FPFuelPrototype
+---@return number? button_number
+---@return LocalisedString tooltip
 function processors.wagons_per_timescale(metadata, raw_amount, item_proto, _)
     local wagon_capacity = (item_proto.type == "fluid") and metadata.fluid_wagon_capacity
-        or metadata.cargo_wagon_capactiy * item_proto.stack_size
-    local wagon_count = (raw_amount * metadata.timescale) / wagon_capacity
-    local number = util.format.number(wagon_count, metadata.formatting_precision)
+        or metadata.cargo_wagon_capactiy * item_proto.stack_size--[[@as uint]]
+    local raw_number = (raw_amount * metadata.timescale) / wagon_capacity
+    local button_number = lib.format.button_number(raw_number)
 
-    local plural_parameter = (number == "1") and 1 or 2
-    local tooltip = {"", number, " ", {"fp.pl_wagon", plural_parameter}, "/", metadata.timescale_string}
+    local tooltip_number = lib.format.number(raw_number, metadata.formatting_precision)
+    local plural_parameter = (tooltip_number == "1") and 1 or 2
+    local tooltip = {"", tooltip_number, " ", {"fp.pl_wagon", plural_parameter}, "/", metadata.timescale_string}
 
-    return number, tooltip
+    return button_number, tooltip
 end
 
-local lift_capactity = prototypes.utility_constants.rocket_lift_weight
+---@param metadata ItemViewsData
+---@param raw_amount number
+---@param item_proto FPItemPrototype | FPFuelPrototype
+---@return number? button_number
+---@return LocalisedString tooltip
 function processors.rockets_per_timescale(metadata, raw_amount, item_proto, _)
     if item_proto.type == "fluid" then return nil, {"fp.fluid_item"} end
-    if item_proto.weight > lift_capactity then return nil, {"fp.item_too_heavy"} end
+    if item_proto.weight > metadata.lift_capacity then return nil, {"fp.item_too_heavy"} end
 
-    local total_weight = raw_amount * metadata.timescale * item_proto.weight
-    local raw_number = total_weight / lift_capactity
-    local number = util.format.number(raw_number, metadata.formatting_precision)
+    local total_weight = raw_amount * metadata.timescale * item_proto.weight--[[@as Weight]]
+    local raw_number = total_weight / metadata.lift_capacity
+    local button_number = lib.format.button_number(raw_number)
 
-    local plural_parameter = (number == "1") and 1 or 2
-    local tooltip = {"", number, " ", {"fp.pl_rocket", plural_parameter}, "/", metadata.timescale_string}
+    local tooltip_number = lib.format.number(raw_number, metadata.formatting_precision)
+    local plural_parameter = (tooltip_number == "1") and 1 or 2
+    local tooltip = {"", tooltip_number, " ", {"fp.pl_rocket", plural_parameter}, "/", metadata.timescale_string}
 
-    return number, tooltip
+    return button_number, tooltip
 end
 
----@param player LuaPlayer
----@param item SimpleItem
----@param item_amount number?
----@param machine_count number?
----@return string | -1
----@return LocalisedString
-function item_views.process_item(player, item, item_amount, machine_count)
-    local views_data = util.globals.ui_state(player).views_data  ---@cast views_data -nil
 
-    local raw_amount = item_amount or item.amount
-    if raw_amount == nil or (raw_amount ~= 0 and raw_amount < views_data.adjusted_margin_of_error) then
+---@param player LuaPlayer
+---@param proto FPItemPrototype | FPFuelPrototype
+---@param item_amount number
+---@param machine_amount number?
+---@return (number | -1 | nil) button_number
+---@return LocalisedString? tooltip_line
+function item_views.process_item(player, proto, item_amount, machine_amount)
+    local views_data = lib.globals.ui_state(player).views_data  ---@cast views_data -nil
+
+    if item_amount == nil or (item_amount ~= 0 and item_amount < views_data.adjusted_margin_of_error) then
         return -1, nil
     end
 
-    local proto = item.proto
     if proto.type == "entity" then
-        local amount = (proto.fixed_unit) and raw_amount or raw_amount * views_data.timescale
-        local number = util.format.number(amount, views_data.formatting_precision)
-        local unit = proto.fixed_unit or {"fp.per_timescale", {"fp." .. TIMESCALE_MAP[views_data.timescale]}}
-        return number, {"", number, " ", unit}
+        local amount = (proto.fixed_unit) and item_amount or item_amount * views_data.timescale
+        local button_number = lib.format.button_number(amount)
+        local tooltip_number = lib.format.number(amount, views_data.formatting_precision)
+        local unit = proto.fixed_unit or {"fp.per_timescale",
+            {"fp." .. lib.gui.timescale_as_string(views_data.timescale)}}
+        return button_number, {"", tooltip_number, " ", unit}
     else
-        local view_preferences = util.globals.preferences(player).item_views
-        local selected_view = view_preferences.views[view_preferences.selected_index].name
-        return processors[selected_view](views_data, raw_amount, proto, machine_count)
+        local view_preferences = lib.globals.preferences(player).item_views
+        local selected_view = view_preferences.views[view_preferences.selected_index]--[[@cast -nil]].name
+        local processor = processors[selected_view]  ---@cast processor -nil
+        local number, tooltip = processor(views_data, item_amount, proto, machine_amount)
+        return number, tooltip
     end
 end
 
 
 ---@class ItemViewsData
----@field views { string: ItemViewData }
+---@field views table<string, ItemViewData>
 ---@field timescale Timescale
 ---@field timescale_string LocalisedString
 ---@field adjusted_margin_of_error number
----@field belt_or_lane "belt" | "lane"
+---@field belts_or_lanes BeltsOrLanes
 ---@field throughput_multiplier number
 ---@field formatting_precision integer
+---@field pumping_speed number
+---@field lift_capacity number
 ---@field cargo_wagon_capactiy number
 ---@field fluid_wagon_capacity number
 
@@ -126,7 +172,9 @@ end
 ---@field caption LocalisedString
 ---@field tooltip LocalisedString
 
-
+---@param default DefaultPrototype
+---@return LuaEntityPrototype prototype
+---@return LocalisedString quality_string
 local function proto_and_quality_string(default)
     local proto = prototypes.entity[default.proto.name]
     local quality = (default.quality and default.quality.always_show)
@@ -136,23 +184,29 @@ end
 
 ---@param player LuaPlayer
 function item_views.rebuild_data(player)
-    local preferences = util.globals.preferences(player)
-    local timescale_string = TIMESCALE_MAP[preferences.timescale]
+    local preferences = lib.globals.preferences(player)
+    local timescale_string = lib.gui.timescale_as_string(preferences.timescale)
 
-    local belt_proto = defaults.get(player, "belts").proto  --[[@as FPBeltPrototype]]
-    local belts_or_lanes = preferences.belts_or_lanes
+    local belt_proto = defaults.get(player, "belts").proto  ---@as FPBeltPrototype
+    local belts_or_lanes, belt_stack = preferences.belts_or_lanes, preferences.belt_stack
     local throughput_divisor = (belts_or_lanes == "belts") and belt_proto.throughput or (belt_proto.throughput / 2)
+    local throughput_insert = (belt_stack > 1) and {"", {"fp.throughput_insert", belt_stack}, " "} or ""
 
-    local default_pump = defaults.get(player, "pumps")
+    local default_pump = defaults.get(player, "pumps")  ---@cast default_pump.proto FPPumpPrototype
     local pump_proto, pump_quality = proto_and_quality_string(default_pump)
 
+    local default_silo = defaults.get(player, "silos")  ---@cast default_silo.proto FPSiloPrototype
+    local _, silo_quality = proto_and_quality_string(default_silo)
+
     local default_cargo_wagon = defaults.get(player, "wagons", "cargo-wagon")
+    ---@cast default_cargo_wagon.proto FPWagonPrototype
     local cargo_wagon_proto, cargo_wagon_quality = proto_and_quality_string(default_cargo_wagon)
 
     local default_fluid_wagon = defaults.get(player, "wagons", "fluid-wagon")
+    ---@cast default_fluid_wagon.proto FPWagonPrototype
     local fluid_wagon_proto, fluid_wagon_quality = proto_and_quality_string(default_fluid_wagon)
 
-    util.globals.ui_state(player).views_data = {
+    lib.globals.ui_state(player).views_data = {
         views = {
             items_per_timescale = {
                 index = 1,
@@ -163,8 +217,8 @@ function item_views.rebuild_data(player)
                 index = 2,
                 caption = {"", belt_proto.rich_text, " ", default_pump.proto.rich_text},
                 tooltip = {"fp.view_tt", {"fp.throughput", {"fp.pl_" .. belts_or_lanes:sub(1, -2), 2},
-                    belt_proto.rich_text, belt_proto.localised_name, default_pump.proto.rich_text,
-                    default_pump.proto.localised_name, pump_quality}}
+                    throughput_insert, belt_proto.rich_text, belt_proto.localised_name,
+                    default_pump.proto.rich_text, default_pump.proto.localised_name, pump_quality}}
             },
             items_per_second_per_machine = {
                 index = 3,
@@ -188,20 +242,22 @@ function item_views.rebuild_data(player)
             rockets_per_timescale = {
                 index = 6,
                 caption = {"", "[img=fp_silo_rocket]", "/", {"fp.unit_" .. timescale_string}},
-                tooltip = {"fp.view_tt", {"fp.rockets_per_timescale", {"fp." .. timescale_string}}}
+                tooltip = {"fp.view_tt", {"fp.rockets_per_timescale", {"fp." .. timescale_string},
+                    default_silo.proto.rich_text, default_silo.proto.localised_name, silo_quality}}
             }
         },
         timescale = preferences.timescale,
-        timescale_string = {"fp.unit_" .. TIMESCALE_MAP[preferences.timescale]},
+        timescale_string = {"fp.unit_" .. timescale_string}--[[@as LocalisedString]],
         adjusted_margin_of_error = MAGIC_NUMBERS.margin_of_error / preferences.timescale,
-        belt_or_lane = belts_or_lanes:sub(1, -2),
-        throughput_multiplier = 1 / throughput_divisor,
-        pumping_speed = pump_proto.get_pumping_speed(default_pump.quality.name) * 60,
+        belts_or_lanes = belts_or_lanes,
+        throughput_multiplier = (1 / throughput_divisor) / belt_stack,
+        formatting_precision = MAGIC_NUMBERS.formatting_precision,
+        pumping_speed = pump_proto.get_pumping_speed(default_pump.quality--[[@cast -nil]].name) * 60,
+        lift_capacity = default_silo.proto--[[@as FPSiloPrototype]].rocket_lift_weight,
         cargo_wagon_capactiy = cargo_wagon_proto.get_inventory_size(defines.inventory.cargo_wagon,
-            default_cargo_wagon.quality.name),
-        fluid_wagon_capacity = fluid_wagon_proto.get_fluid_capacity(default_fluid_wagon.quality.name),
-        formatting_precision = 4
-    }
+            default_cargo_wagon.quality--[[@cast -nil]].name),
+        fluid_wagon_capacity = fluid_wagon_proto.get_fluid_capacity(default_fluid_wagon.quality--[[@cast -nil]].name)
+    }  ---@as ItemViewsData
 end
 
 ---@class ItemViewPreferences
@@ -212,7 +268,7 @@ end
 ---@field name string
 ---@field enabled boolean
 
----@return ItemViewPreference[]
+---@return ItemViewPreferences
 function item_views.default_preferences()
     return {
         views = {
@@ -231,7 +287,7 @@ end
 ---@param player LuaPlayer
 ---@param func function
 local function run_on_all_views(player, func)
-    local ui_state = util.globals.ui_state(player)
+    local ui_state = lib.globals.ui_state(player)
 
     local main_interface = ui_state.main_elements.views_flow
     local compact_interface = ui_state.compact_elements.views_flow
@@ -243,9 +299,11 @@ end
 
 ---@param player LuaPlayer
 function item_views.rebuild_interface(player)
-    local view_preferences = util.globals.preferences(player).item_views
-    local views = util.globals.ui_state(player).views_data.views
+    local view_preferences = lib.globals.preferences(player).item_views
+    local views_data = lib.globals.ui_state(player).views_data
+    local views = views_data--[[@cast -nil]].views
 
+    ---@param flow LuaGuiElement
     local function rebuild(flow)
         flow.clear()
         local table = flow.add{type="table", name="table_views", column_count=table_size(views)}
@@ -254,9 +312,12 @@ function item_views.rebuild_interface(player)
         -- Iterate preferences for proper ordering
         for index, view_preference in pairs(view_preferences.views) do
             local view = views[view_preference.name]
-            local button = table.add{type="button", caption=view.caption, tooltip=view.tooltip,
-                tags={mod="fp", on_gui_click="change_view", view_index=index}, style="fp_button_push",
-                mouse_button_filter={"left"}}
+
+            ---@class ChangeViewTags
+            ---@field view_index integer
+            local tags = {mod="fp", on_gui_click="change_view", view_index=index}
+            table.add{type="button", tags=tags, caption=view.caption, tooltip=view.tooltip,
+                style="fp_button_push", mouse_button_filter={"left"}}
         end
     end
 
@@ -266,14 +327,15 @@ end
 
 ---@param player LuaPlayer
 function item_views.refresh_interface(player)
-    local view_preferences = util.globals.preferences(player).item_views
+    local view_preferences = lib.globals.preferences(player).item_views
 
+    ---@param flow LuaGuiElement
     local function refresh(flow)
         for _, view_button in pairs(flow["table_views"].children) do
-            local index = view_button.tags.view_index
+            local index = view_button.tags--[[@as ChangeViewTags]].view_index
             local preference = view_preferences.views[index]
             view_button.toggled = (view_preferences.selected_index == index)
-            view_button.visible = preference.enabled
+            view_button.visible = preference--[[@cast -nil]].enabled
         end
     end
 
@@ -284,19 +346,19 @@ end
 ---@param player LuaPlayer
 ---@param new_index integer
 local function select_view(player, new_index)
-    local view_preferences = util.globals.preferences(player).item_views
+    local view_preferences = lib.globals.preferences(player).item_views
     view_preferences.selected_index = new_index
 
     item_views.refresh_interface(player)
-    local compact_view = util.globals.ui_state(player).compact_view
+    local compact_view = lib.globals.ui_state(player).compact_view
     local refresh = (compact_view) and "compact_factory" or "factory"
-    util.gui.run_refresh(player, refresh)
+    lib.gui.run_refresh(player, refresh)
 end
 
 ---@param player LuaPlayer
 ---@param direction "standard" | "reverse"
 function item_views.cycle_views(player, direction)
-    local view_preferences = util.globals.preferences(player).item_views
+    local view_preferences = lib.globals.preferences(player).item_views
 
     local next_option = view_preferences.selected_index
     local total_options = #view_preferences.views
@@ -308,7 +370,7 @@ function item_views.cycle_views(player, direction)
         elseif next_option < 1 then next_option = total_options end
 
         local preference = view_preferences.views[next_option]
-        if preference.enabled then
+        if preference--[[@cast -nil]].enabled then
             select_view(player, next_option)
             break
         end
@@ -317,26 +379,27 @@ end
 
 
 -- ** EVENTS **
-local listeners = {}
+local listeners = {}  ---@type ListenerDefinitions
 
 listeners.gui = {
     on_gui_click = {
         {
             name = "change_view",
-            handler = (function(player, tags, _)
+            handler = function(player, tags, _)
+                ---@cast tags ChangeViewTags
                 select_view(player, tags.view_index)
-            end)
+            end
         }
     }
-}
+}  ---@as GUIListenerDefinition
 
-listeners.misc = {
-    fp_cycle_production_views = (function(player, _)
+listeners.player = {
+    fp_cycle_production_views = function(player, _)
         item_views.cycle_views(player, "standard")
-    end),
-    fp_reverse_cycle_production_views = (function(player, _)
+    end,
+    fp_reverse_cycle_production_views = function(player, _)
         item_views.cycle_views(player, "reverse")
-    end)
+    end
 }
 
 return { listeners }

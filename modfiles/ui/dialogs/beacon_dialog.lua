@@ -1,10 +1,16 @@
 local Beacon = require("backend.data.Beacon")
 
+---@class BeaconDialogModalData: ModuleConfiguratorModalData
+---@field line_id ObjectID
+---@field object Beacon
+---@field beacon_backup Beacon
+
 -- ** LOCAL UTIL **
+---@param player LuaPlayer
 local function refresh_defaults_frame(player)
-    local modal_data = util.globals.modal_data(player)  --[[@as table]]
+    local modal_data = lib.globals.modal_data(player)  ---@as BeaconDialogModalData
     local modal_elements = modal_data.modal_elements
-    local beacon = modal_data.object  --[[@as Beacon]]
+    local beacon = modal_data.object  ---@as Beacon
 
     local beacon_tooltip = defaults.generate_tooltip(player, "beacons", nil)
     local beacon_default = defaults.get(player, "beacons", nil)
@@ -16,8 +22,10 @@ local function refresh_defaults_frame(player)
     modal_elements.amount.enabled = not equals_amount
 end
 
+---@param parent_frame LuaGuiElement
+---@param player LuaPlayer
 local function add_defaults_frame(parent_frame, player)
-    local modal_elements = util.globals.modal_elements(player)
+    local modal_elements = lib.globals.modal_elements(player)
 
     local frame_defaults = parent_frame.add{type="frame", direction="horizontal", style="fp_frame_bordered_stretch"}
     frame_defaults.style.top_padding = 7
@@ -32,21 +40,28 @@ local function add_defaults_frame(parent_frame, player)
     label_info.style.margin = {0, 8, 0, 24}
     modal_elements["beacon_title"] = label_info
 
-    local button_beacon = modal_elements.defaults_flow.add{type="sprite-button", sprite="fp_default",
-        tags={mod="fp", on_gui_click="set_beacon_default", action="beacon"},
+    ---@class SetBeaconDefaultTags
+    ---@field action "beacon" | "amount"
+
+    local beacon_tags = {mod="fp", on_gui_click="set_beacon_default", action="beacon"}
+    local button_beacon = modal_elements.defaults_flow.add{type="sprite-button", tags=beacon_tags, sprite="fp_default",
         tooltip={"fp.save_as_default_beacon"}, style="tool_button"}
     modal_elements["beacon"] = button_beacon
 
-    local button_amount = modal_elements.defaults_flow.add{type="sprite-button", sprite="fp_amount",
-        tags={mod="fp", on_gui_click="set_beacon_default", action="amount"},
+    local amount_tags = {mod="fp", on_gui_click="set_beacon_default", action="amount"}
+    local button_amount = modal_elements.defaults_flow.add{type="sprite-button", tags=amount_tags, sprite="fp_amount",
         tooltip={"fp.save_beacon_amount"}, style="tool_button"}
     modal_elements["amount"] = button_amount
 
     refresh_defaults_frame(player)
 end
 
+
+---@param player LuaPlayer
+---@param tags SetBeaconDefaultTags
 local function set_defaults(player, tags, _)
-    local beacon = util.globals.modal_data(player).object
+    local modal_data = lib.globals.modal_data(player)  ---@as BeaconDialogModalData
+    local beacon = modal_data.object
 
     if tags.action == "beacon" then
         local data = {
@@ -65,6 +80,8 @@ local function set_defaults(player, tags, _)
 end
 
 
+---@param parent_flow LuaGuiElement
+---@param modal_data BeaconDialogModalData
 local function add_beacon_frame(parent_flow, modal_data)
     local modal_elements = modal_data.modal_elements
     local beacon = modal_data.object
@@ -74,7 +91,7 @@ local function add_beacon_frame(parent_flow, modal_data)
 
     flow_beacon.add{type="label", caption={"fp.pu_beacon", 1}, style="semibold_label"}
     local button_beacon = flow_beacon.add{type="choose-elem-button", elem_type="entity-with-quality",
-        tags={mod="fp", on_gui_elem_changed="select_beacon"}, elem_filters=util.gui.compile_elem_filter("beacons"),
+        tags={mod="fp", on_gui_elem_changed="select_beacon"}, elem_filters=lib.gui.compile_elem_filter("beacons"),
         style="fp_sprite-button_inset"}
     button_beacon.elem_value = beacon:elem_value()
     button_beacon.style.right_margin = 12
@@ -84,12 +101,12 @@ local function add_beacon_frame(parent_flow, modal_data)
     flow_beacon.add{type="label", caption={"fp.info_label", {"fp.amount"}}, tooltip={"fp.beacon_amount_tt"},
         style="semibold_label"}
     local beacon_amount = (beacon.amount ~= 0) and tostring(beacon.amount) or ""
-    if is_mono_beacon then beacon_amount = 1 end
+    if is_mono_beacon then beacon_amount = "1" end
     local textfield_amount = flow_beacon.add{type="textfield", text=beacon_amount,
         tags={mod="fp", on_gui_text_changed="beacon_amount", on_gui_confirmed="confirm_beacon",
         width=40}, tooltip={"fp.expression_textfield"}, enabled=(not is_mono_beacon)}
     textfield_amount.style.width = 40
-   if not is_mono_beacon then util.gui.select_all(textfield_amount) end
+   if not is_mono_beacon then lib.gui.select_all(textfield_amount) end
     modal_elements["beacon_amount"] = textfield_amount
 
     local label_profile = flow_beacon.add{type="label", tooltip={"fp.beacon_profile_tt"}}
@@ -113,16 +130,18 @@ local function add_beacon_frame(parent_flow, modal_data)
 end
 
 
+---@param modal_data BeaconDialogModalData
 local function update_profile_label(modal_data)
     local caption = (modal_data.object.amount == 0) and "x -"
         or "x " .. modal_data.object:profile_multiplier()
     modal_data.modal_elements.profile_label.caption = caption
 end
 
+---@param modal_data BeaconDialogModalData
 local function update_dialog_submit_button(modal_data)
     local beacon_amount = modal_data.object.amount
 
-    local message = nil
+    local message  ---@type LocalisedString
     if not beacon_amount or beacon_amount == 0 then
         message = {"fp.beacon_issue_set_amount"}
     elseif modal_data.module_set.module_count == 0 then
@@ -132,9 +151,10 @@ local function update_dialog_submit_button(modal_data)
 end
 
 
+---@param player LuaPlayer
 local function reset_beacon(player)
-    local modal_data = util.globals.modal_data(player)  --[[@as table]]
-    local beacon = modal_data.object  --[[@as Beacon]]
+    local modal_data = lib.globals.modal_data(player)  ---@as BeaconDialogModalData
+    local beacon = modal_data.object
     beacon:reset(player)
 
     -- Some manual refreshing which don't have their own method
@@ -147,15 +167,16 @@ local function reset_beacon(player)
 end
 
 
+---@param player LuaPlayer
 local function handle_beacon_change(player, _, _)
-    local modal_data = util.globals.modal_data(player)  --[[@as table]]
+    local modal_data = lib.globals.modal_data(player)  ---@as BeaconDialogModalData
     local beacon = modal_data.object
     local beacon_button = modal_data.modal_elements.beacon_button
     local elem_value = beacon_button.elem_value
 
     if not elem_value then
         beacon_button.elem_value = beacon:elem_value()  -- reset the beacon so it can't be nil
-        util.cursor.create_flying_text(player, {"fp.no_removal", {"fp.pu_beacon", 1}})
+        lib.cursor.create_flying_text(player, {"fp.no_removal", {"fp.pu_beacon", 1}})
         return  -- nothing changed
     end
 
@@ -169,13 +190,14 @@ local function handle_beacon_change(player, _, _)
     refresh_defaults_frame(player)
 end
 
+---@param player LuaPlayer
 local function handle_amount_change(player, _, _)
-    local modal_data = util.globals.modal_data(player)  --[[@as table]]
+    local modal_data = lib.globals.modal_data(player)  ---@as BeaconDialogModalData
     local textfield = modal_data.modal_elements.beacon_amount
 
-    local amount = util.gui.parse_expression_field(textfield, true)
-    local valid = (amount ~= nil and amount % 1 == 0)
-    util.gui.update_expression_field(textfield, valid)
+    local amount = lib.gui.parse_expression_field(textfield, true)
+    local valid = (amount ~= nil and amount % 1 == 0)  ---@cast amount integer
+    lib.gui.update_expression_field(textfield, valid)
 
     modal_data.object.amount = (valid) and amount or 0
     modal_data.module_set:normalize({effects=true})
@@ -186,8 +208,10 @@ local function handle_amount_change(player, _, _)
     update_dialog_submit_button(modal_data)
 end
 
+---@param player LuaPlayer
+---@param entities LuaEntity[]
 local function handle_beacon_selection(player, entities)
-    local modal_elements = util.globals.modal_elements(player)
+    local modal_elements = lib.globals.modal_elements(player)
     modal_elements.beacon_total.text = tostring(table_size(entities))
     modal_elements.beacon_total.focus()
 
@@ -195,20 +219,22 @@ local function handle_beacon_selection(player, entities)
 end
 
 
+---@param player LuaPlayer
+---@param modal_data BeaconDialogModalData
 local function open_beacon_dialog(player, modal_data)
-    local line = OBJECT_INDEX[modal_data.line_id]  --[[@as Line]]
+    local line = OBJECT_INDEX[modal_data.line_id]  ---@as Line
     modal_data.line = line
 
     if line.beacon ~= nil then
-        modal_data.backup_beacon = line.beacon:clone()
+        modal_data.beacon_backup = line.beacon:clone(player)
         modal_data.object = line.beacon
     else
         local default_beacon = defaults.get(player, "beacons")
-        modal_data.object = Beacon.init(default_beacon.proto --[[@as FPBeaconPrototype]], line)
+        modal_data.object = Beacon.init(line, default_beacon.proto--[[@as FPBeaconPrototype]])
         modal_data.object.quality_proto = default_beacon.quality
         modal_data.object.amount = default_beacon.beacon_amount or 0
         if modal_data.object:is_mono_beacon() then modal_data.object.amount = 1 end
-        modal_data.object.module_set:ingest_default(default_beacon.modules)
+        modal_data.object.module_set:ingest_default(default_beacon.modules--[[@cast -nil]])
         line:set_beacon(modal_data.object)
     end
     modal_data.module_set = modal_data.object.module_set
@@ -230,32 +256,33 @@ local function open_beacon_dialog(player, modal_data)
     add_defaults_frame(content_frame, player)
 end
 
+---@param player LuaPlayer
+---@param action GUICloseAction
 local function close_beacon_dialog(player, action)
-    local modal_data = util.globals.modal_data(player)  --[[@as table]]
-    local factory = util.context.get(player, "Factory")
+    local modal_data = lib.globals.modal_data(player)  ---@as BeaconDialogModalData
 
     if action == "submit" then
         local beacon = modal_data.object
-        beacon.total_amount = util.gui.parse_expression_field(modal_data.modal_elements.beacon_total, true)
+        beacon.total_amount = lib.gui.parse_expression_field(modal_data.modal_elements.beacon_total, true)
 
-        solver.update(player, factory)
-        util.gui.run_refresh(player, "factory")
+        solver.update(player)
+        lib.gui.run_refresh(player, "production")
 
     elseif action == "delete" then
         modal_data.line:set_beacon(nil)
-        solver.update(player, factory)
-        util.gui.run_refresh(player, "factory")
+        solver.update(player)
+        lib.gui.run_refresh(player, "production")
 
     else -- action == "cancel"
-        modal_data.line:set_beacon(modal_data.backup_beacon)  -- could be nil
+        modal_data.line:set_beacon(modal_data.beacon_backup)  -- could be nil
         -- Need to refresh so the buttons have the 'new' backup beacon for further actions
-        util.gui.run_refresh(player, "production_detail")
+        lib.gui.run_refresh(player, "production")
     end
 end
 
 
 -- ** EVENTS **
-local listeners = {}
+local listeners = {}  ---@type ListenerDefinitions
 
 listeners.gui = {
     on_gui_elem_changed = {
@@ -271,40 +298,62 @@ listeners.gui = {
         },
         {
             name = "beacon_total_amount",
-            handler = (function(_, _, event)
-                local total_amount = util.gui.parse_expression_field(event.element, true)
-                util.gui.update_expression_field(event.element, total_amount ~= nil)
-            end)
+            handler = function(_, _, event)
+                ---@cast event EventData.on_gui_text_changed
+                local total_amount = lib.gui.parse_expression_field(event.element, true)
+                lib.gui.update_expression_field(event.element, total_amount ~= nil)
+            end
         }
     },
     on_gui_confirmed = {
         {
             name = "confirm_beacon",
-            handler = (function(player, _, event)
-                local confirmed = util.gui.confirm_expression_field(event.element, true)
-                if confirmed then util.gui.close_dialog(player, "submit") end
-            end)
+            handler = function(player, _, event)
+                ---@cast event EventData.on_gui_confirmed
+                local confirmed = lib.gui.confirm_expression_field(event.element, true)
+                if confirmed then lib.gui.close_dialog(player, "submit") end
+            end
         }
     },
     on_gui_click = {
         {
             name = "use_beacon_selector",
             timeout = 20,
-            handler = (function(player, _, _)
+            handler = function(player, _, _)
                 modal_dialog.enter_selection_mode(player, "fp_beacon_selector")
-            end)
+            end
         },
         {
             name = "set_beacon_default",
             handler = set_defaults
         }
     }
+}  ---@as GUIListenerDefinition
+
+listeners.player = {
+    on_player_cursor_stack_changed = function(player, _)
+        if lib.globals.ui_state(player).active_selector == nil then return end
+
+        -- If the cursor stack is not valid_for_read, it's empty, thus the selector has been put away
+        if not player.cursor_stack.valid_for_read or player.cursor_stack.name ~= "fp_beacon_selector" then
+            modal_dialog.leave_selection_mode(player)
+        end
+    end,
+
+    on_player_selected_area = function(player, event)
+        ---@cast event EventData.on_player_selected_area
+        local active_selector = lib.globals.ui_state(player).active_selector
+        if event.item == "fp_beacon_selector" and active_selector ~= nil then
+            handle_beacon_selection(player, event.entities)
+        end
+    end
 }
 
 listeners.dialog = {
     dialog = "beacon",
-    metadata = (function(modal_data)
-        local line = OBJECT_INDEX[modal_data.line_id]  --[[@as Line]]
+    metadata = function(modal_data)
+        ---@cast modal_data BeaconDialogModalData
+        local line = OBJECT_INDEX[modal_data.line_id]  ---@as Line
         local machine_name = line.machine.proto.localised_name
         return {
             caption = {"", {"fp." .. "edit"}, " ", {"fp.pl_beacon", 1}},
@@ -312,8 +361,8 @@ listeners.dialog = {
             show_submit_button = true,
             show_delete_button = (line.beacon ~= nil),
             reset_handler_name = "reset_beacon"
-        }
-    end),
+        }  ---@as ModalDialogSettings
+    end,
     open = open_beacon_dialog,
     close = close_beacon_dialog
 }
@@ -322,24 +371,6 @@ listeners.global = {
     beacon_defaults_refresher = refresh_defaults_frame,
     beacon_submit_checker = update_dialog_submit_button,
     reset_beacon = reset_beacon
-}
-
-listeners.misc = {
-    on_player_cursor_stack_changed = (function(player, _)
-        if util.globals.ui_state(player).active_selector == nil then return end
-
-        -- If the cursor stack is not valid_for_read, it's empty, thus the selector has been put away
-        if not player.cursor_stack.valid_for_read or player.cursor_stack.name ~= "fp_beacon_selector" then
-            modal_dialog.leave_selection_mode(player)
-        end
-    end),
-
-    on_player_selected_area = (function(player, event)
-        local active_selector = util.globals.ui_state(player).active_selector
-        if event.item == "fp_beacon_selector" and active_selector ~= nil then
-            handle_beacon_selection(player, event.entities)
-        end
-    end)
 }
 
 return { listeners }

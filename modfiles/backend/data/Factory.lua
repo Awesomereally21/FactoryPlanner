@@ -1,6 +1,6 @@
 local Object = require("backend.data.Object")
 local Floor = require("backend.data.Floor")
-local Product = require("backend.data.Product")
+local TLProduct = require("backend.data.TLProduct")
 
 ---@class Factory: Object, ObjectMethods
 ---@field class "Factory"
@@ -9,33 +9,36 @@ local Product = require("backend.data.Product")
 ---@field previous Factory?
 ---@field archived boolean
 ---@field name string
----@field matrix_solver_active boolean
----@field matrix_free_items FPItemPrototype[]?
----@field blueprints string[]
+---@field solver SolverName
+---@field matrix_free_items (FPItemPrototype | FPPackedPrototype)[]
+---@field simplex_basis table<ConstraintKey, VariableKey>?
+---@field blueprints_inventory LuaInventory
 ---@field notes string
----@field productivity_boni { string: EffectValue }
----@field first Product?
+---@field productivity_boni table<string, IntegerEffectValue>
+---@field first TLProduct?
 ---@field top_floor Floor
 ---@field linearly_dependant boolean?
 ---@field tick_of_deletion uint?
+---@field tick_of_solver_update uint?
 ---@field last_valid_modset ModToVersion?
 local Factory = Object.methods()
 Factory.__index = Factory
 script.register_metatable("Factory", Factory)
 
----@param name string
----@param matrix_solver_active boolean
+---@param name string?
+---@param solver_name SolverName
 ---@return Factory
-local function init(name, matrix_solver_active)
+local function init(name, solver_name)
     local object = Object.init({
         archived = false,
         --owner = nil,
         --shared = false,
 
         name = name,
-        matrix_solver_active = matrix_solver_active,
+        solver = solver_name,
         matrix_free_items = {},
-        blueprints = {},
+        simplex_basis = nil,
+        blueprints_inventory = game.create_inventory(MAGIC_NUMBERS.blueprint_limit),
         notes = "",
         productivity_boni = {},
         first = nil,
@@ -43,8 +46,9 @@ local function init(name, matrix_solver_active)
 
         linearly_dependant = false,
         tick_of_deletion = nil,
+        tick_of_solver_update = nil,
         last_valid_modset = nil
-    }, "Factory", Factory)  --[[@as Factory]]
+    }, "Factory", Factory)  ---@as Factory
     object.top_floor.parent = object
     return object
 end
@@ -57,28 +61,29 @@ function Factory:index()
 end
 
 
----@param product Product
----@param relative_object Product?
+---@param product TLProduct
+---@param relative_object TLProduct?
 ---@param direction NeighbourDirection?
 function Factory:insert(product, relative_object, direction)
     product.parent = self
     self:_insert(product, relative_object, direction)
 end
 
----@param product Product
+---@param product TLProduct
 function Factory:remove(product)
     product.parent = nil
     self:_remove(product)
 end
 
----@param product Product
----@param new_product Product
+---@param product TLProduct
+---@param new_product TLProduct
 function Factory:replace(product, new_product)
+    product.parent = nil
     new_product.parent = self
     self:_replace(product, new_product)
 end
 
----@param product Product
+---@param product TLProduct
 ---@param direction NeighbourDirection
 ---@param spots integer?
 function Factory:shift(product, direction, spots)
@@ -87,37 +92,37 @@ end
 
 
 ---@param filter ObjectFilter
----@param pivot Product?
+---@param pivot TLProduct?
 ---@param direction NeighbourDirection?
----@return Product? product
+---@return TLProduct? product
 function Factory:find(filter, pivot, direction)
-    return self:_find(filter, pivot, direction)  --[[@as Product?]]
+    return self:_find(filter, pivot, direction)  ---@as TLProduct?
 end
 
----@return Product?
+---@return TLProduct?
 function Factory:find_last()
-    return self:_find_last()  --[[@as Product?]]
+    return self:_find_last()  ---@as TLProduct?
 end
 
 
 ---@param filter ObjectFilter?
----@param pivot Product?
+---@param pivot TLProduct?
 ---@param direction NeighbourDirection?
----@return fun(): Product?
+---@return fun(): TLProduct?
 function Factory:iterator(filter, pivot, direction)
     return self:_iterator(filter, pivot, direction)
 end
 
 ---@param filter ObjectFilter?
----@param pivot Product?
+---@param pivot TLProduct?
 ---@param direction NeighbourDirection?
----@return Product[]
+---@return TLProduct[]
 function Factory:as_list(filter, pivot, direction)
     return self:_as_list(filter, pivot, direction)
 end
 
 ---@param filter ObjectFilter?
----@param pivot Product?
+---@param pivot TLProduct?
 ---@param direction NeighbourDirection?
 ---@return number count
 function Factory:count(filter, pivot, direction)
@@ -164,62 +169,87 @@ end
 
 ---@param force LuaForce
 ---@param recipe_name string
----@return EffectValue productivity_bonus
+---@return IntegerEffectValue productivity_bonus
 function Factory:get_productivity_bonus(force, recipe_name)
     local custom_bonus = self.productivity_boni[recipe_name]
     if custom_bonus then return custom_bonus
-    else return util.get_recipe_productivity(force, recipe_name) end
+    else return lib.get_recipe_productivity(force, recipe_name) end
 end
 
 
--- Only used when switching between belts and lanes
----@param new_defined_by ProductDefinedBy
-function Factory:update_product_definitions(new_defined_by)
-    for product in self:iterator() do
-        product:change_definition(new_defined_by)
+---@param desired_tick MapTick
+---@param player LuaPlayer
+function Factory:schedule_solver_update(desired_tick, player)
+    -- Get rid of any previously scheduled refreshes
+    if self.tick_of_solver_update then
+        lib.nth_tick.cancel(self.tick_of_solver_update)
+        self.tick_of_solver_update = nil
     end
+
+    ---@class UpdateSolverMetadata
+    ---@field player_index PlayerIndex
+    ---@field factory_id ObjectID
+    local metadata = {player_index=player.index, factory_id=self.id}
+
+    local actual_tick = lib.nth_tick.register(desired_tick, "update_solver", metadata)
+    self.tick_of_solver_update = actual_tick
 end
 
 
 ---@class PackedFactory: PackedObject
 ---@field class "Factory"
 ---@field name string
----@field matrix_solver_active boolean
----@field matrix_free_items FPPackedPrototype[]?
----@field blueprints string[]
+---@field solver SolverName
+---@field matrix_free_items FPPackedPrototype[]
+---@field blueprint_strings table<integer, string> sparse
 ---@field notes string
----@field productivity_boni { string: EffectValue }
----@field products PackedProduct[]?
+---@field productivity_boni table<string, IntegerEffectValue>
+---@field products PackedProduct[]
 ---@field top_floor PackedFloor
 
+---@param full boolean
 ---@return PackedFactory packed_self
-function Factory:pack()
+function Factory:pack(full)
+    local blueprint_strings = {}
+    for index = 1, #self.blueprints_inventory do
+        local item = self.blueprints_inventory[index]
+        if item.valid_for_read then
+            blueprint_strings[index] = item.export_stack()
+        end
+    end
+
     return {
         class = self.class,
         name = self.name,
-        matrix_solver_active = self.matrix_solver_active,
-        matrix_free_items = prototyper.util.simplify_prototypes(self.matrix_free_items, "type"),
-        blueprints = self.blueprints,
+        solver = self.solver,
+        matrix_free_items = (self.matrix_free_items) and
+            prototyper.util.simplify_prototypes(self.matrix_free_items, "type") or nil,
+        blueprint_strings = blueprint_strings,
         notes = self.notes,
         productivity_boni = self.productivity_boni,
-        products = self:_pack(),
-        top_floor = self.top_floor:pack()
+        products = self:_pack(full),
+        top_floor = self.top_floor:pack(full)
     }
 end
 
 ---@param packed_self PackedFactory
 ---@return Factory factory
 local function unpack(packed_self)
-    local unpacked_self = init(packed_self.name)
+    local unpacked_self = init(packed_self.name, packed_self.solver)
 
-    -- Product prototypes will be automatically unpacked by the validation process
-    unpacked_self.matrix_solver_active = packed_self.matrix_solver_active
-    unpacked_self.matrix_free_items = packed_self.matrix_free_items or {}
-    unpacked_self.blueprints = packed_self.blueprints
+    -- Matrix free items will be automatically unpacked by the validation process
+    ---@diagnostic disable-next-line: assign-type-mismatch
+    unpacked_self.matrix_free_items = packed_self.matrix_free_items
+
+    unpacked_self.blueprints_inventory = game.create_inventory(MAGIC_NUMBERS.blueprint_limit)
+    for index, blueprint in pairs(packed_self.blueprint_strings) do
+        unpacked_self.blueprints_inventory[index].import_stack(blueprint)
+    end
+
     unpacked_self.notes = packed_self.notes
     unpacked_self.productivity_boni = packed_self.productivity_boni
 
-    unpacked_self.first = Object.unpack(packed_self.products, Product.unpack, unpacked_self)  --[[@as Product]]
+    unpacked_self.first = Object.unpack(packed_self.products, TLProduct.unpack, unpacked_self)  ---@as TLProduct
 
     unpacked_self.top_floor = Floor.unpack(packed_self.top_floor)
     unpacked_self.top_floor.parent = unpacked_self
@@ -227,21 +257,23 @@ local function unpack(packed_self)
     return unpacked_self
 end
 
+---@param player LuaPlayer
 ---@return Factory clone
-function Factory:clone()
-    local clone = unpack(self:pack())
-    clone:validate()
+function Factory:clone(player)
+    local clone = unpack(self:pack(false))
+    clone:validate(player)
     return clone
 end
 
 
+---@param player LuaPlayer
 ---@return boolean valid
-function Factory:validate()
+function Factory:validate(player)
     local previous_validity = self.valid
     self.valid = true
 
-    self.valid = self:_validate() and self.valid
-    self.valid = self.top_floor:validate() and self.valid
+    self.valid = self:_validate(player) and self.valid
+    self.valid = self.top_floor:validate(player) and self.valid
 
     local matrix_free_items, valid = prototyper.util.validate_prototype_objects(self.matrix_free_items, "type")
     self.matrix_free_items = matrix_free_items
@@ -259,7 +291,7 @@ function Factory:validate()
     -- The one in storage is still the previous one as it's only updated after migrations
     elseif previous_validity and not self.valid then self.last_valid_modset = storage.installed_mods end
 
-    return self.valid
+    return self.valid  ---@as boolean
 end
 
 ---@param player LuaPlayer
@@ -269,9 +301,9 @@ function Factory:repair(player)
     self.top_floor:repair(player)
 
     -- Remove any unrepairable free items so the factory remains valid
-    local free_items = self.matrix_free_items or {}
+    local free_items = self.matrix_free_items
     for index = #free_items, 1, -1 do
-        if free_items[index].simplified --[[@as AnyPrototype]] then
+        if free_items[index].simplified then
             table.remove(free_items, index)
         end
     end

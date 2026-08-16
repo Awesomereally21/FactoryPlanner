@@ -14,7 +14,7 @@ local Line = require("backend.data.Line")
 ---@field products SimpleItem[]
 ---@field byproducts SimpleItem[]
 ---@field ingredients SimpleItem[]
----@field machine_count integer
+---@field machine_amount integer
 local Floor = Object.methods()
 Floor.__index = Floor
 script.register_metatable("Floor", Floor)
@@ -29,8 +29,8 @@ local function init(level)
         products = {},
         byproducts = {},
         ingredients = {},
-        machine_count = 0
-    }, "Floor", Floor)  --[[@as Floor]]
+        machine_amount = 0
+    }, "Floor", Floor)  ---@as Floor
     return object
 end
 
@@ -55,16 +55,17 @@ function Floor:remove(line, preserve)
     line.parent = nil
     self:_remove(line)
 
-    if preserve then return end
+    if preserve or self.level == 1 then return end
+    ---@cast self.first -nil
+
     -- Convert floor to line in parent if only defining line remains
-    if self.level > 1 and self.first.next == nil then
-        self.parent:replace(self, self.first)
-    end
+    if self.first.next == nil then self.parent:replace(self, self.first) end
 end
 
 ---@param line LineObject
 ---@param new_line LineObject
 function Floor:replace(line, new_line)
+    line.parent = nil
     new_line.parent = self
     self:_replace(line, new_line)
 end
@@ -80,7 +81,7 @@ end
 
 ---@return LineObject?
 function Floor:find_last()
-    return self:_find_last()  --[[@as LineObject?]]
+    return self:_find_last()  ---@as LineObject?
 end
 
 ---@param filter ObjectFilter?
@@ -100,11 +101,11 @@ function Floor:count(filter, pivot, direction)
 end
 
 
----@alias ComponentDataSet { proto: FPPrototype, amount: number }
+---@alias ComponentDataSet { proto: LuaItemPrototype, quality_proto: FPQualityPrototype, amount: integer }
 
 ---@class ComponentData
----@field machines { [string]: ComponentDataSet }
----@field modules { [string]: ComponentDataSet }
+---@field machines table<string, ComponentDataSet>
+---@field modules table<string, ComponentDataSet>
 
 -- Returns the machines and modules needed to actually build this floor
 ---@param skip_done boolean
@@ -113,8 +114,16 @@ end
 function Floor:get_component_data(skip_done, component_table)
     local components = component_table or {machines={}, modules={}}
 
-    local function add_component(table, proto, quality_proto, amount)
-        local combined_name = proto.name .. "-" .. quality_proto.name
+    ---@param table table<string,ComponentDataSet>
+    ---@param item_name string?
+    ---@param quality_proto FPQualityPrototype
+    ---@param amount integer
+    local function add_component(table, item_name, quality_proto, amount)
+        if item_name == nil then return end  -- built_by_item_name can be nil
+        local proto = prototypes.item[item_name]
+        if proto == nil then return end
+
+        local combined_name = item_name .. "-" .. quality_proto.name
         local component = table[combined_name]
         if component == nil then
             table[combined_name] = {proto = proto, quality_proto = quality_proto, amount = amount}
@@ -123,13 +132,16 @@ function Floor:get_component_data(skip_done, component_table)
         end
     end
 
+    ---@param object Machine | Beacon
+    ---@param amount integer
     local function add_machine(object, amount)
-        if object.proto.built_by_item then
-            add_component(components.machines, object.proto.built_by_item, object.quality_proto, amount)
-        end
+        ---@cast object.quality_proto FPQualityPrototype
+        add_component(components.machines, object.proto.built_by_item_name, object.quality_proto, amount)
 
         for module in object.module_set:iterator() do
-            add_component(components.modules, module.proto, module.quality_proto, amount * module.amount)
+            ---@cast module.proto FPModulePrototype
+            ---@cast module.quality_proto FPQualityPrototype
+            add_component(components.modules, module.proto.name, module.quality_proto, amount * module.amount)
         end
     end
 
@@ -139,12 +151,12 @@ function Floor:get_component_data(skip_done, component_table)
 
         elseif not skip_done or not line.done then
             local machine = line.machine
-            local ceil_machine_count = math.ceil(machine.amount - 1e-6)
-            add_machine(machine, ceil_machine_count)
+            local ceil_machine_amount = math.ceil(machine.amount - MAGIC_NUMBERS.margin_of_error)
+            add_machine(machine, ceil_machine_amount)
 
             local beacon = line.beacon
             if beacon and beacon.total_amount then
-                local ceil_total_amount = math.ceil(beacon.total_amount - 1e-6)
+                local ceil_total_amount = math.ceil(beacon.total_amount - MAGIC_NUMBERS.margin_of_error)
                 add_machine(beacon, ceil_total_amount)
             end
         end
@@ -154,22 +166,81 @@ function Floor:get_component_data(skip_done, component_table)
 end
 
 
+---@return boolean any_found
+function Floor:any_lines_not_marked_done()
+    for line in self:iterator() do
+        if line.class == "Floor" then  ---@cast line Floor
+            local result = line:any_lines_not_marked_done()
+            if result then return true end
+        else
+            if not line.done then return true end
+        end
+    end
+    return false
+end
+
+
 ---@param object LineObject
 ---@return boolean compatible
 function Floor:check_product_compatibility(object)
     if self.level == 1 then return true end
 
     local relevant_line = (object.class == "Floor") and object.first or object
-    -- The triple loop is crappy, but it's the simplest way to check
-    for _, product in pairs(relevant_line.recipe.proto.products) do
-        for line in self:iterator() do
-            for _, ingredient in pairs(line.ingredients) do
-                if ingredient.proto.type == product.type and ingredient.proto.name == product.name then
-                    return true
-                end
+    local recipe = relevant_line.recipe  ---@cast recipe -nil
+    local producing = (recipe.production_type == "produce")
+
+    -- Use the recipe's net items, as the picker only offers recipes that actually net the
+    -- item in question, which the raw prototype items don't take into account
+    local relevant_items = producing and recipe.products or recipe.ingredients
+
+    ---@param type string
+    ---@param name string
+    ---@param base_name string?
+    ---@param temperature float?
+    ---@return boolean
+    local function relevant(type, name, base_name, temperature)
+        for _, item in pairs(relevant_items) do
+            local item_temperature = producing and item.temperature or recipe:get_temperature(item)
+            if item.type == type and (item.name == name or item.name == base_name or item.base_name == name)
+                    and item_temperature == temperature then
+                return true
             end
         end
+        return false
     end
+
+    ---@param items SimpleItem[]
+    ---@return boolean
+    local function any_relevant(items)
+        for _, item in pairs(items) do
+            local proto = item.proto
+            if relevant(proto.type, proto.name, proto.base_name, proto.temperature) then
+                return true
+            end
+        end
+        return false
+    end
+
+    for line in self:iterator() do
+        if producing then
+            -- Check whether any line on this floor consumes something the pasted line produces
+            for _, ingredient in pairs(line.ingredients) do
+                local proto = ingredient.proto
+                -- Subfloors have no recipe to resolve a temperature with, so use the proto's directly
+                local temperature = proto.temperature
+                if line.recipe then temperature = line.recipe:get_temperature(proto) end
+                if relevant(proto.type, proto.name, nil, temperature) then return true end
+            end
+            local fuel = line.machine and line.machine.fuel
+            if fuel and relevant(fuel.proto.elem_type--[[@as string]], fuel.proto.name, nil, fuel.temperature) then
+                return true
+            end
+        else
+            -- Check whether any line on this floor produces something the pasted line consumes
+            if any_relevant(line.products) or any_relevant(line.byproducts) then return true end
+        end
+    end
+
     return false
 end
 
@@ -188,12 +259,11 @@ end
 ---@return string? error
 function Floor:paste(object)
     if object.class == "Line" or object.class == "Floor" then
-        ---@cast object LineObject
-        if not self:check_product_compatibility(object) then
+        if not self:check_product_compatibility(object--[[@as LineObject]]) then
             return false, "recipe_irrelevant"  -- found no use for the recipe's products
         end
 
-        self.parent:replace(self, object)
+        self.parent:replace(self, object--[[@as LineObject]])
         return true, nil
     else
         return false, "incompatible_class"
@@ -206,14 +276,19 @@ end
 ---@class PackedFloor: PackedObject
 ---@field class "Floor"
 ---@field level integer
----@field lines PackedLineObject[]?
+---@field lines PackedLineObject[]
 
+---@param full boolean
 ---@return PackedFloor packed_self
-function Floor:pack()
+function Floor:pack(full)
     return {
         class = self.class,
         level = self.level,
-        lines = self:_pack()
+        lines = self:_pack(full),
+
+        products = (full) and interface.pack_items(self.products) or nil,
+        byproducts = (full) and interface.pack_items(self.byproducts) or nil,
+        ingredients = (full) and interface.pack_items(self.ingredients) or nil,
     }
 end
 
@@ -222,16 +297,21 @@ end
 local function unpack(packed_self)
     local unpacked_self = init(packed_self.level)
 
-    local function unpacker(line) return (line.class == "Floor") and unpack(line) or Line.unpack(line) end
-    unpacked_self.first = Object.unpack(packed_self.lines, unpacker, unpacked_self)  --[[@as LineObject]]
+    ---@param line PackedLineObject
+    ---@return LineObject line
+    local function unpacker(line)
+        return (line.class == "Floor") and unpack(line--[[@as PackedFloor]]) or Line.unpack(line--[[@as PackedLine]])
+    end
+    unpacked_self.first = Object.unpack(packed_self.lines, unpacker, unpacked_self)  ---@as LineObject
 
     return unpacked_self
 end
 
 
+---@param player LuaPlayer
 ---@return boolean valid
-function Floor:validate()
-    self.valid = self:_validate()
+function Floor:validate(player)
+    self.valid = self:_validate(player)
     return self.valid
 end
 
