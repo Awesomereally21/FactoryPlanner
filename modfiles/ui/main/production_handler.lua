@@ -86,7 +86,7 @@ local function handle_line_recipe_click(player, tags, action)
 
     elseif action == "factoriopedia" then
         local proto = relevant_line.recipe.proto  ---@as FPRecipePrototype
-        util.open_recipebook_gui(player, lib.get_factoriopedia_proto("recipe", proto.name, proto))
+        lib.open_recipebook_gui(player, lib.get_factoriopedia_proto("recipe", proto.name, proto))
     end
 end
 
@@ -110,7 +110,7 @@ local function handle_floor_recipe_click(player, tags, action)
 
     elseif action == "factoriopedia" then
         local proto = line.recipe.proto  ---@as FPRecipePrototype
-        util.open_recipebook_gui(player, lib.get_factoriopedia_proto("recipe", proto.name, proto))
+        lib.open_recipebook_gui(player, lib.get_factoriopedia_proto("recipe", proto.name, proto))
     end
 end
 
@@ -136,10 +136,10 @@ local function handle_machine_click(player, tags, action)
 
     elseif action == "factorysearch" then
         local name = util.get_placeable_item_from_entity(prototypes["entity"][machine.proto.name])
-        util.open_in_factorysearch(player, "item", name)
+        lib.open_in_factorysearch(player, "item", name)
 
     elseif action == "factoriopedia" then
-        util.open_recipebook_gui(player, prototypes["entity"][machine.proto.name])
+        lib.open_recipebook_gui(player, prototypes["entity"][machine.proto.name])
     end
 end
 
@@ -186,10 +186,10 @@ local function handle_beacon_click(player, tags, action)
         lib.gui.run_refresh(player, "production")
 
     elseif action == "factorysearch" then
-        util.open_in_factorysearch(player, "item", beacon.proto.name)
+        lib.open_in_factorysearch(player, "item", beacon.proto.name)
 
     elseif action == "factoriopedia" then
-        util.open_recipebook_gui(player, prototypes["entity"][beacon.proto.name])
+        lib.open_recipebook_gui(player, prototypes["entity"][beacon.proto.name])
     end
 end
 
@@ -240,10 +240,10 @@ local function handle_module_click(player, tags, action)
         lib.gui.run_refresh(player, "production")
 
     elseif action == "factorysearch" then
-        util.open_in_factorysearch(player, "item", module.proto.name)
+        lib.open_in_factorysearch(player, "item", module.proto.name)
 
     elseif action == "factoriopedia" then
-        util.open_recipebook_gui(player, prototypes["item"][module.proto.name])
+        lib.open_recipebook_gui(player, prototypes["item"][module.proto.name])
     end
 end
 
@@ -336,12 +336,12 @@ local function handle_item_click(player, tags, action)
     elseif action == "factorysearch" then
         local name = item.proto.name
         if item.proto.temperature then name = item.proto.base_name end
-        util.open_in_factorysearch(player, item.proto.type, name)
+        lib.open_in_factorysearch(player, item.proto.type, name)
 
     elseif action == "factoriopedia" then
         local name = item.proto.name
         if item.proto.temperature then name = item.proto.base_name end
-        util.open_recipebook_gui(player, prototypes[item.proto.type][name])
+        lib.open_recipebook_gui(player, prototypes[item.proto.type][name])
     end
 end
 
@@ -387,10 +387,10 @@ local function handle_fuel_click(player, tags, action)
         lib.cursor.handle_item_click(player, fuel.proto--[[@as FPFuelPrototype]], fuel.amount)
 
     elseif action == "factorysearch" then
-        util.open_in_factorysearch(player, fuel.proto.type, fuel.proto.name)
+        lib.open_in_factorysearch(player, fuel.proto.type, fuel.proto.name)
 
     elseif action == "factoriopedia" then
-        util.open_recipebook_gui(player, prototypes[fuel.proto.type][fuel.proto.name])
+        lib.open_recipebook_gui(player, prototypes[fuel.proto.type][fuel.proto.name])
     end
 end
 
