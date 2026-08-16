@@ -528,7 +528,7 @@ local function refresh_compact_factory(player)
 
     local switch = ui_state.compact_elements.timescale_switch
     if switch and switch.valid then
-        local switch_state = (util.globals.preferences(player).timescale == 1) and "left" or "right"
+        local switch_state = (lib.globals.preferences(player).timescale == 1) and "left" or "right"
         switch.switch_state = switch_state
     end
 
@@ -554,7 +554,7 @@ local function build_compact_factory(player)
     container_views.add{type="empty-widget", style="fflib_horizontal_pusher"}
 
     -- Timescale switch
-    local switch_state = (util.globals.preferences(player).timescale == 1) and "left" or "right"
+    local switch_state = (lib.globals.preferences(player).timescale == 1) and "left" or "right"
     local switch_timescale = container_views.add{type="switch", tooltip={"fp.timescale_tt"}, switch_state=switch_state,
         left_label_caption={"", "/", {"fp.second"}}, right_label_caption={"", "/", {"fp.minute"}},
         tags={mod="fp", on_gui_switch_state_changed="compact_toggle_timescale"}}
@@ -893,12 +893,12 @@ factory_listeners.gui = {
             name = "compact_toggle_timescale",
             handler = (function(player, _, event)
                 local new_timescale = (event.element.switch_state == "left") and 1 or 60
-                util.globals.preferences(player).timescale = new_timescale
+                lib.globals.preferences(player).timescale = new_timescale
 
                 item_views.rebuild_data(player)
                 item_views.rebuild_interface(player)
-                util.gui.run_refresh(player, "compact_factory")
-                util.gui.run_refresh(player, "factory")
+                lib.gui.run_refresh(player, "compact_factory")
+                lib.gui.run_refresh(player, "factory")
             end)
         }
     }
