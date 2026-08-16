@@ -648,7 +648,7 @@ local function handle_ingredient_click(player, tags, action)
         lib.open_in_factorysearch(player, "item", name)
     elseif action == "factoriopedia" then
         local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
-        lib.open_recipebook_gui(player, prototypes[item.proto.type][name])
+        player.open_factoriopedia_gui(prototypes[item.proto.type][name])
     end
 end
 
@@ -666,7 +666,7 @@ local function handle_recipe_click(player, tags, action)
         end
     elseif action == "factoriopedia" then
         local proto = relevant_line--[[@as Line]].recipe.proto  ---@as FPRecipePrototype
-        lib.open_recipebook_gui(player, lib.get_factoriopedia_proto("recipe", proto.name, proto))
+        player.open_factoriopedia_gui(lib.get_factoriopedia_proto("recipe", proto.name, proto))
     end
 end
 
@@ -679,7 +679,7 @@ local function handle_module_click(player, tags, action)
     if action == "factorysearch" then
         lib.open_in_factorysearch(player, "item", module.proto.name)
     elseif action == "factoriopedia" then
-        lib.open_recipebook_gui(player, prototypes["item"][module.proto.name])
+        player.open_factoriopedia_gui(prototypes["item"][module.proto.name])
     end
 end
 
@@ -697,7 +697,7 @@ local function handle_machine_click(player, tags, action)
         local name = util.get_placeable_item_from_entity(entity)
         lib.open_in_factorysearch(player, "item", name)
     elseif action == "factoriopedia" then
-        lib.open_recipebook_gui(player, prototypes["entity"][line.machine.proto.name])
+        player.open_factoriopedia_gui(prototypes["entity"][line.machine.proto.name])
     end
 end
 
@@ -714,7 +714,7 @@ local function handle_beacon_click(player, tags, action)
     elseif action == "factorysearch" then
         lib.open_in_factorysearch(player, "item", line.beacon.proto.name)
     elseif action == "factoriopedia" then
-        lib.open_recipebook_gui(player, prototypes["entity"][line.beacon.proto.name])
+        player.open_factoriopedia_gui(prototypes["entity"][line.beacon.proto.name])
     end
 end
 
@@ -747,7 +747,7 @@ local function handle_item_click(player, tags, action)
         local name = item.proto.name
         if item.proto.type == "entity" then name = name:gsub("custom%-", "")
         elseif item.proto.temperature then name = item.proto.base_name--[[@as string]] end
-        lib.open_recipebook_gui(player, prototypes[item.proto.type][name])
+        player.open_factoriopedia_gui(prototypes[item.proto.type][name])
     end
 end
 

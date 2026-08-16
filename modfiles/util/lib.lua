@@ -152,13 +152,6 @@ function _lib.is_special_power_item(name)
 end
 
 
--- This function is only called when Factory Search is active, so no need to check for the mod
----@param player LuaPlayer
----@param prototype LuaEntityPrototype|LuaEquipmentPrototype|LuaFluidPrototype|LuaItemPrototype|LuaRecipePrototype|LuaTilePrototype
-function _lib.open_recipebook_gui(player, prototype)
-    remote.call("RecipeBook", "open_page", player.index, prototype)
-end
-
 -- This function returns its placeable item based on an entity
 ---@param entity LuaEntityPrototype
 ---@return string
