@@ -38,6 +38,10 @@ local function refresh_production_bar(player)
 
     local factory_valid = factory ~= nil and factory.valid
     production_bar_elements.timescale_switch.visible = factory_valid
+    if factory_valid then
+        local switch_state = (lib.globals.preferences(player).timescale == 1) and "left" or "right"
+        production_bar_elements.timescale_switch.switch_state = switch_state
+    end
     ui_state.main_elements.views_flow.visible = factory_valid
 end
 
