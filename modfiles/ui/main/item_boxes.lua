@@ -260,6 +260,10 @@ local function handle_item_button_click(player, tags, action)
         local amount = (item.class == "TLProduct") and item:get_required_amount() or item.amount
         lib.cursor.put_into_combinator(player, item.proto--[[@as FPItemPrototype]], amount)
 
+    elseif action == "factorysearch" then
+        local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
+        lib.open_in_factorysearch(player, item.proto.type, name)
+
     elseif action == "factoriopedia" then
         local proto = item.proto  ---@as FPItemPrototype
         player.open_factoriopedia_gui(lib.get_factoriopedia_proto(proto))
@@ -398,6 +402,7 @@ listeners.gui = {
                 cut = {shortcut="control-right", show=is_top_level_product, enable=lib.actions.can_edit_factory},
                 pipette = {input="pipette", enable=lib.actions.can_pipette},
                 put_into_combinator = {input="put_into_combinator", enable=lib.actions.can_put_into_combinator},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", enable=lib.actions.can_open_factoriopedia}
             },
             handler = handle_item_button_click

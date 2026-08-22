@@ -59,6 +59,10 @@ local function handle_item_button_click(player, tags, action)
     elseif action == "put_into_combinator" then
         lib.cursor.put_into_combinator(player, item.proto, item.abs_diff)
 
+    elseif action == "factorysearch" then
+        local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
+        lib.open_in_factorysearch(player, item.proto.type, name)
+
     elseif action == "factoriopedia" then
         player.open_factoriopedia_gui(lib.get_factoriopedia_proto(item.proto))
     end
@@ -434,6 +438,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 pipette = {input="pipette", enable=lib.actions.can_pipette},
                 put_into_combinator = {input="put_into_combinator", enable=lib.actions.can_put_into_combinator},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", enable=lib.actions.can_open_factoriopedia}
             },
             handler = handle_item_button_click
