@@ -38,6 +38,11 @@ local function refresh_production_bar(player)
 
     production_bar_elements.timescale_switch.visible = not invalid_factory_selected
     ui_state.main_elements.views_flow.visible = not invalid_factory_selected
+    if not invalid_factory_selected then
+        local switch_state = (lib.globals.preferences(player).timescale == 1) and "left" or "right"
+        production_bar_elements.timescale_switch.switch_state = switch_state
+    end
+
 end
 
 
