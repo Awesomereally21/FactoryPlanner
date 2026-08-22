@@ -163,4 +163,25 @@ function _lib.is_special_power_item(name)
     return (name == "custom-electric-power" or name == "custom-heat-power" or name == "custom-heating-power")
 end
 
+
+-- This function returns its placeable item based on an entity
+---@param entity LuaEntityPrototype
+---@return string
+function _lib.get_placeable_item_from_entity(entity)
+    local items_to_place_this = entity.items_to_place_this
+    if items_to_place_this and items_to_place_this[1] then
+        return items_to_place_this[1].name
+    else
+        return entity.name
+    end
+end
+
+-- This function is only called when Factory Search is active, so no need to check for the mod
+---@param player LuaPlayer
+---@param type string
+---@param name string
+function _lib.open_in_factorysearch(player, type, name)
+    remote.call("factory-search", "search", player, {type=type, name=name})
+end
+
 return _lib

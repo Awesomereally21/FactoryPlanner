@@ -546,6 +546,12 @@ local function refresh_compact_factory(player)
     ui_state.tooltips.compact_dialog = {}
     ui_state.compact_elements.item_buttons = {}
 
+    local switch = ui_state.compact_elements.timescale_switch
+    if switch and switch.valid then
+        local switch_state = (lib.globals.preferences(player).timescale == 1) and "left" or "right"
+        switch.switch_state = switch_state
+    end
+
     refresh_compact_header(player, factory)
     refresh_compact_production(player)
 end
@@ -563,7 +569,17 @@ local function build_compact_factory(player)
     -- View state
     local container_views = subheader.add{type="flow", direction="horizontal"}
     container_views.style.padding = {4, 4, 0, 0}
+
+    -- Push the remaining views to the right
     container_views.add{type="empty-widget", style="fflib_horizontal_pusher"}
+
+    -- Timescale switch
+    local switch_state = (lib.globals.preferences(player).timescale == 1) and "left" or "right"
+    local switch_timescale = container_views.add{type="switch", tooltip={"fp.timescale_tt"}, switch_state=switch_state,
+        left_label_caption={"", "/", {"fp.second"}}, right_label_caption={"", "/", {"fp.minute"}},
+        tags={mod="fp", on_gui_switch_state_changed="compact_toggle_timescale"}}
+    switch_timescale.style.margin = {0, 4}
+    compact_elements["timescale_switch"] = switch_timescale
 
     local flow_views = container_views.add{type="flow", direction="horizontal"}
     compact_elements["views_flow"] = flow_views
@@ -652,7 +668,9 @@ local function handle_ingredient_click(player, tags, action)
 
     if action == "put_into_cursor" then
         lib.cursor.handle_item_click(player, item.proto, item.amount)
-
+    elseif action == "factorysearch" then
+        local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
+        lib.open_in_factorysearch(player, "item", name)
     elseif action == "factoriopedia" then
         local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
         player.open_factoriopedia_gui(prototypes[item.proto.type][name])
@@ -683,7 +701,9 @@ end
 local function handle_module_click(player, tags, action)
     local module = OBJECT_INDEX[tags.module_id]  ---@as Module
 
-    if action == "factoriopedia" then
+    if action == "factorysearch" then
+        lib.open_in_factorysearch(player, "item", module.proto.name)
+    elseif action == "factoriopedia" then
         player.open_factoriopedia_gui(prototypes["item"][module.proto.name])
     end
 end
@@ -697,7 +717,10 @@ local function handle_machine_click(player, tags, action)
 
     if action == "put_into_cursor" then
         lib.cursor.set_entity(player, line, line.machine)
-
+    elseif action == "factorysearch" then
+        local entity = prototypes["entity"][line.machine.proto.name]
+        local name = lib.get_placeable_item_from_entity(entity)
+        lib.open_in_factorysearch(player, "item", name)
     elseif action == "factoriopedia" then
         player.open_factoriopedia_gui(prototypes["entity"][line.machine.proto.name])
     end
@@ -713,7 +736,8 @@ local function handle_beacon_click(player, tags, action)
 
     if action == "put_into_cursor" then
         lib.cursor.set_entity(player, line, line.beacon)
-
+    elseif action == "factorysearch" then
+        lib.open_in_factorysearch(player, "item", line.beacon.proto.name)
     elseif action == "factoriopedia" then
         player.open_factoriopedia_gui(prototypes["entity"][line.beacon.proto.name])
     end
@@ -735,7 +759,15 @@ local function handle_item_click(player, tags, action)
     if action == "put_into_cursor" then
         if item.proto.type == "entity" then return end
         lib.cursor.handle_item_click(player, item.proto, item.amount)
-
+    elseif action == "factorysearch" then
+        local name = item.proto.name
+        local type = item.proto.type
+        if type == "entity" then
+            name = name:gsub("custom%-", "")
+            name = lib.get_placeable_item_from_entity(prototypes[item.proto.type][name])
+            type = "item"
+        elseif item.proto.temperature then name = item.proto.base_name end
+        lib.open_in_factorysearch(player, type, name)
     elseif action == "factoriopedia" then
         local name = item.proto.name
         if item.proto.type == "entity" then name = name:gsub("custom%-", "")
@@ -803,6 +835,7 @@ factory_listeners.gui = {
             name = "act_on_compact_ingredient",
             actions_table = {
                 put_into_cursor = {shortcut="left", show=true},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
             handler = handle_ingredient_click
@@ -818,6 +851,7 @@ factory_listeners.gui = {
         {
             name = "act_on_compact_module",
             actions_table = {
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
             handler = handle_module_click
@@ -826,6 +860,7 @@ factory_listeners.gui = {
             name = "act_on_compact_machine",
             actions_table = {
                 put_into_cursor = {shortcut="left", show=true},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
             handler = handle_machine_click
@@ -834,6 +869,7 @@ factory_listeners.gui = {
             name = "act_on_compact_beacon",
             actions_table = {
                 put_into_cursor = {shortcut="left", show=true},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
             handler = handle_beacon_click
@@ -842,6 +878,7 @@ factory_listeners.gui = {
             name = "act_on_compact_item",
             actions_table = {
                 put_into_cursor = {shortcut="left", show=true},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
             handler = handle_item_click
@@ -874,6 +911,20 @@ factory_listeners.gui = {
         {
             name = "leave_compact_item",
             handler = handle_hover_change
+        }
+    },
+    on_gui_switch_state_changed = {
+        {
+            name = "compact_toggle_timescale",
+            handler = (function(player, _, event)
+                local new_timescale = (event.element.switch_state == "left") and 1 or 60
+                lib.globals.preferences(player).timescale = new_timescale
+
+                item_views.rebuild_data(player)
+                item_views.rebuild_interface(player)
+                lib.gui.run_refresh(player, "compact_factory")
+                lib.gui.run_refresh(player, "factory")
+            end)
         }
     }
 }  ---@as GUIListenerDefinition

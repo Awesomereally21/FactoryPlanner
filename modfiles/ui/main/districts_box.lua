@@ -61,6 +61,10 @@ local function handle_item_button_click(player, tags, action)
     elseif action == "put_into_cursor" then
         lib.cursor.handle_item_click(player, item.proto, item.abs_diff)
 
+    elseif action == "factorysearch" then
+        local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
+        lib.open_in_factorysearch(player, item.proto.type, name)
+
     elseif action == "factoriopedia" then
         local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
         player.open_factoriopedia_gui(prototypes[item.proto.type][name])
@@ -428,6 +432,7 @@ listeners.gui = {
             actions_table = {
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_item_button_click
@@ -438,6 +443,7 @@ listeners.gui = {
                 create_factory = {shortcut="left", show=true},
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_item_button_click
