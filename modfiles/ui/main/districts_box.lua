@@ -61,6 +61,9 @@ local function handle_item_button_click(player, tags, action)
     elseif action == "put_into_cursor" then
         lib.cursor.handle_item_click(player, item.proto, item.abs_diff)
 
+    elseif action == "pipette" then
+        lib.cursor.pipette_item(player, item.proto)
+
     elseif action == "factorysearch" then
         local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
         lib.open_in_factorysearch(player, item.proto.type, name)
@@ -116,7 +119,8 @@ local function build_items_flow(player, parent, district)
         ---@class HandleItemButtonClickTags
         ---@field item_id ObjectID
         ---@field context "districts_box"
-        local tags = {mod="fp", item_id=item.id, on_gui_hover="set_tooltip", context="districts_box"}
+        local tags = {mod="fp", item_id=item.id, on_gui_hover="set_tooltip", on_gui_leave="clear_pipette",
+            context="districts_box"}
         local action_line = nil
         local diff_number, amount_tooltip = nil, nil
         local total_tooltip = nil
@@ -432,6 +436,7 @@ listeners.gui = {
             actions_table = {
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
@@ -443,6 +448,7 @@ listeners.gui = {
                 create_factory = {shortcut="left", show=true},
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },

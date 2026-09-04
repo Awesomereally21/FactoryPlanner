@@ -55,6 +55,31 @@ local function interface_toggle(metadata)
     else main_dialog.toggle(player) end
 end
 
+---@class DelayedPipetteMetadata
+---@field player_index PlayerIndex
+---@field action string
+---@field tags Tags
+
+-- Runs the snapshotted Q-pipette a tick after the key press. The fp_pipette
+-- custom-input uses consuming="none" so vanilla Q (pipette/clear-cursor) still
+-- works globally; per the API docs the script event fires before the vanilla
+-- game event, so applying immediately would let vanilla wipe the new cursor.
+-- Deferring a tick lets vanilla run first, then FP pipettes the hovered
+-- button's machine/module/item on top of it.
+---@param metadata DelayedPipetteMetadata
+local function delayed_pipette(metadata)
+    local player = game.get_player(metadata.player_index)
+    if player == nil then return end
+    if lib.globals.ui_state(player).modal_dialog_type ~= nil then return end
+    if not (main_dialog.is_in_focus(player) or compact_dialog.is_in_focus(player)) then return end
+    local handled = lib.cursor.try_pipette_data(player, {action=metadata.action, tags=metadata.tags})
+    if handled then
+        lib.messages.refresh(player)
+    else
+        lib.cursor.clear_pipette(player)
+    end
+end
+
 
 ---@param player LuaPlayer
 ---@param default_visibility boolean
@@ -182,9 +207,17 @@ end
 function main_dialog.set_tooltip(player, element)
     local ui_state = lib.globals.ui_state(player)
     local tooltips = ui_state.tooltips[element.tags.context]
-    if tooltips[element.index] ~= nil then
+    if tooltips and tooltips[element.index] ~= nil then
         element.tooltip = tooltips[element.index]
         tooltips[element.index] = nil
+    end
+
+    -- Track hovered button for Q-pipette if it supports the pipette action
+    local action_name = element.tags.on_gui_click
+    if type(action_name) == "string" then
+        lib.cursor.store_pipette(player, action_name, element.tags)
+    else
+        lib.cursor.clear_pipette(player)
     end
 end
 
@@ -227,6 +260,14 @@ listeners.gui = {
                 main_dialog.set_tooltip(player, event.element)
             end
         }
+    },
+    on_gui_leave = {
+        {
+            name = "clear_pipette",
+            handler = function(player, _, _)
+                lib.cursor.clear_pipette(player)
+            end
+        }
     }
 }  ---@as GUIListenerDefinition
 
@@ -260,6 +301,18 @@ listeners.player = {
 
     fp_toggle_interface = function(player, _)
         if not lib.globals.ui_state(player).compact_view then main_dialog.toggle(player) end
+    end,
+
+    fp_pipette = function(player, event)
+        local ui_state = lib.globals.ui_state(player)
+        if ui_state.modal_dialog_type ~= nil then return end
+        if not (main_dialog.is_in_focus(player) or compact_dialog.is_in_focus(player)) then return end
+        local pipette_data = ui_state.pipette_data
+        if not pipette_data then return end  -- not hovering FP UI, let vanilla Q handle it
+        local tags_copy = {}
+        for k, v in pairs(pipette_data.tags) do tags_copy[k] = v end
+        lib.nth_tick.register(event.tick + 1, "delayed_pipette",
+            {player_index=player.index, action=pipette_data.action, tags=tags_copy})
     end,
 
     -- This needs to be in a single place, otherwise the events cancel each other out
@@ -306,7 +359,8 @@ listeners.game = {
 
 listeners.global = {
     shrinkwrap_interface = shrinkwrap_interface,
-    interface_toggle = interface_toggle
+    interface_toggle = interface_toggle,
+    delayed_pipette = delayed_pipette
 }
 
 return { listeners }

@@ -26,6 +26,7 @@ local dev_export_string = "eNrtWUtv2zAM/i8+R0WdrTvk2MNOGzBsuw2BIct0KlQPV5KzBln++
 ---@field active_selector string?
 ---@field compact_view boolean
 ---@field districts_view boolean
+---@field pipette_data PipetteData?
 
 ---@class LastAction
 ---@field action_name string | defines.events
@@ -52,7 +53,8 @@ local function reset_ui_state(player_table)
         active_selector = nil,
 
         compact_view = false,
-        districts_view = false
+        districts_view = false,
+        pipette_data = nil
     }
 end
 

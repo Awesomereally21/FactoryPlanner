@@ -178,7 +178,7 @@ local function add_modules_flow(parent_flow, line, module_set, metadata)
         ---@field module_id ObjectID
         ---@field context "compact_dialog"
         local tags = {mod="fp", on_gui_click="act_on_compact_module", module_id=module.id,
-            on_gui_hover="set_tooltip", context="compact_dialog"}
+            on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="compact_dialog"}
         local button = parent_flow.add{type="sprite-button", tags=tags, sprite=module.proto.sprite, style=style,
             quality=quality_proto.name, number=module.amount, mouse_button_filter={"left-and-right"},
             raise_hover_events=true}
@@ -205,7 +205,7 @@ local function add_machine_flow(parent_flow, line, metadata)
         ---@field line_id ObjectID
         ---@field context "compact_dialog"
         local tags = {mod="fp", on_gui_click="act_on_compact_machine", line_id=line.id,
-            on_gui_hover="set_tooltip", context="compact_dialog"}
+            on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="compact_dialog"}
         local button = machine_flow.add{type="sprite-button", tags=tags, sprite=machine_proto.sprite, number=amount,
             style=style, quality=quality_proto.name, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
         metadata.tooltips[button.index] = tooltip
@@ -233,7 +233,7 @@ local function add_beacon_flow(parent_flow, line, metadata)
         ---@field line_id ObjectID
         ---@field context "compact_dialog"
         local tags = {mod="fp", on_gui_click="act_on_compact_beacon", line_id=line.id,
-            on_gui_hover="set_tooltip", context="compact_dialog"}
+            on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="compact_dialog"}
         local button = beacon_flow.add{type="sprite-button", tags=tags, sprite=beacon_proto.sprite, style=style,
             number=beacon.amount, quality=quality_proto.name, mouse_button_filter={"left-and-right"},
             raise_hover_events=true}
@@ -668,6 +668,8 @@ local function handle_ingredient_click(player, tags, action)
 
     if action == "put_into_cursor" then
         lib.cursor.handle_item_click(player, item.proto, item.amount)
+    elseif action == "pipette" then
+        lib.cursor.pipette_item(player, item.proto)
     elseif action == "factorysearch" then
         local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
         lib.open_in_factorysearch(player, "item", name)
@@ -701,7 +703,9 @@ end
 local function handle_module_click(player, tags, action)
     local module = OBJECT_INDEX[tags.module_id]  ---@as Module
 
-    if action == "factorysearch" then
+    if action == "pipette" then
+        lib.cursor.pipette_module(player, module)
+    elseif action == "factorysearch" then
         lib.open_in_factorysearch(player, "item", module.proto.name)
     elseif action == "factoriopedia" then
         player.open_factoriopedia_gui(prototypes["item"][module.proto.name])
@@ -715,7 +719,7 @@ local function handle_machine_click(player, tags, action)
     local line = OBJECT_INDEX[tags.line_id]  ---@as Line
     -- We don't need to care about relevant lines here because this only gets called on lines without subfloor
 
-    if action == "put_into_cursor" then
+    if action == "put_into_cursor" or action == "pipette" then
         lib.cursor.set_entity(player, line, line.machine)
     elseif action == "factorysearch" then
         local entity = prototypes["entity"][line.machine.proto.name]
@@ -734,7 +738,7 @@ local function handle_beacon_click(player, tags, action)
     ---@cast line.beacon -nil
     -- We don't need to care about relevant lines here because this only gets called on lines without subfloor
 
-    if action == "put_into_cursor" then
+    if action == "put_into_cursor" or action == "pipette" then
         lib.cursor.set_entity(player, line, line.beacon)
     elseif action == "factorysearch" then
         lib.open_in_factorysearch(player, "item", line.beacon.proto.name)
@@ -759,6 +763,8 @@ local function handle_item_click(player, tags, action)
     if action == "put_into_cursor" then
         if item.proto.type == "entity" then return end
         lib.cursor.handle_item_click(player, item.proto, item.amount)
+    elseif action == "pipette" then
+        lib.cursor.pipette_item(player, item.proto)
     elseif action == "factorysearch" then
         local name = item.proto.name
         local type = item.proto.type
@@ -835,6 +841,7 @@ factory_listeners.gui = {
             name = "act_on_compact_ingredient",
             actions_table = {
                 put_into_cursor = {shortcut="left", show=true},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
@@ -851,6 +858,7 @@ factory_listeners.gui = {
         {
             name = "act_on_compact_module",
             actions_table = {
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
@@ -860,6 +868,7 @@ factory_listeners.gui = {
             name = "act_on_compact_machine",
             actions_table = {
                 put_into_cursor = {shortcut="left", show=true},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
@@ -869,6 +878,7 @@ factory_listeners.gui = {
             name = "act_on_compact_beacon",
             actions_table = {
                 put_into_cursor = {shortcut="left", show=true},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
@@ -878,6 +888,7 @@ factory_listeners.gui = {
             name = "act_on_compact_item",
             actions_table = {
                 put_into_cursor = {shortcut="left", show=true},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left", show=true}
             },
@@ -910,7 +921,10 @@ factory_listeners.gui = {
     on_gui_leave = {
         {
             name = "leave_compact_item",
-            handler = handle_hover_change
+            handler = function(player, tags, event)
+                handle_hover_change(player, tags, event)
+                lib.cursor.clear_pipette(player)
+            end
         }
     },
     on_gui_switch_state_changed = {

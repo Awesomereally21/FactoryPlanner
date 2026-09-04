@@ -185,7 +185,7 @@ local function add_module_flow(parent_flow, module_set, metadata)
         ---@field module_id ObjectID
         ---@field context "production_table"
         local tags = {mod="fp", on_gui_click="act_on_line_module", module_id=module.id, on_gui_hover="set_tooltip",
-            context="production_table"}
+            on_gui_leave="clear_pipette", context="production_table"}
         local button = module_flow.add{type="sprite-button", tags=tags, sprite=module.proto.sprite,
             number=module.amount, quality=quality_proto.name, style="fflib_slot_button_default_small",
             mouse_button_filter={"left-and-right"}, raise_hover_events=true}
@@ -244,7 +244,7 @@ function builders.machine(line, parent_flow, metadata)
         ---@field machine_id ObjectID
         ---@field context "production_table"
         local tags = {mod="fp", on_gui_click="act_on_line_machine", machine_id=machine.id, on_gui_hover="set_tooltip",
-            context="production_table"}
+            on_gui_leave="clear_pipette", context="production_table"}
         local button = parent_flow.add{type="sprite-button", tags=tags, sprite=machine_proto.sprite, number=amount,
             quality=quality_proto.name, style=style, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
         metadata.tooltips[button.index] = tooltip
@@ -287,7 +287,7 @@ function builders.beacon(line, parent_flow, metadata)
         ---@field beacon_id ObjectID
         ---@field context "production_table"
         local tags = {mod="fp", on_gui_click="act_on_line_beacon", beacon_id=beacon.id, on_gui_hover="set_tooltip",
-            context="production_table"}
+            on_gui_leave="clear_pipette", context="production_table"}
         local button_beacon = parent_flow.add{type="sprite-button", tags=tags, sprite=beacon.proto.sprite,
             number=beacon.amount, quality=quality_proto.name, style="fflib_slot_button_default_small",
             mouse_button_filter={"left-and-right"}, raise_hover_events=true}
@@ -334,7 +334,7 @@ local function add_catalysts(line, parent_flow, category, metadata)
 
         local tooltip = {"", name_line, temperature_line, number_line, action_line}
         local tags = {mod="fp", on_gui_click=action_name, on_gui_hover="set_tooltip",
-            context="production_table", line_id=line.id, item_index=index}
+            on_gui_leave="clear_pipette", context="production_table", line_id=line.id, item_index=index}
 
         local button = parent_flow.add{type="sprite-button", sprite=proto.sprite, tags=tags,
             number=amount, style="fflib_slot_button_blue_small",
@@ -364,7 +364,7 @@ function builders.products(line, parent_flow, metadata)
         local style = "fflib_slot_button_default_small"
         local priority_line, action_tooltip = "", nil  ---@type LocalisedString, LocalisedString?
         local amount, number_tooltip = nil, nil
-        local tags = {mod="fp", on_gui_hover="set_tooltip", context="production_table"}
+        local tags = {mod="fp", on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="production_table"}
 
         if proto.type == "entity" and proto.special then
             relevant_flow = special_flow
@@ -442,7 +442,7 @@ function builders.byproducts(line, parent_flow, metadata)
         local tooltip = {"", {"fp.tt_title", proto.localised_name}, number_line, "\n", MODIFIER_ACTIONS[action].tooltip}
 
         local tags = {mod="fp", on_gui_click=action, line_id=line.id, item_index=index,
-            on_gui_hover="set_tooltip", context="production_table"}
+            on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="production_table"}
         local button = relevant_flow.add{type="sprite-button", tags=tags, sprite=proto.sprite, number=amount,
             style="fflib_slot_button_red_small", mouse_button_filter={"left-and-right"}, raise_hover_events=true}
         metadata.tooltips[button.index] = tooltip
@@ -503,7 +503,7 @@ local function add_fuel(line, parent_flow, metadata)
     ---@field fuel_id ObjectID
     ---@field context "production_table"
     local tags = {mod="fp", on_gui_click="act_on_line_fuel", fuel_id=fuel.id, on_gui_hover="set_tooltip",
-        context="production_table"}
+        on_gui_leave="clear_pipette", context="production_table"}
     -- Insert this before special ingredients, ie. index 1
     local button = parent_flow.add{type="sprite-button", tags=tags, sprite=fuel.proto.sprite, style=style,
         number=amount, mouse_button_filter={"left-and-right"}, raise_hover_events=true, index=1}
@@ -527,7 +527,7 @@ local function add_special_ingredient(line, parent_flow, metadata, item, index)
 
     local button_number = lib.format.button_number(item.amount)
     local tags = {mod="fp", on_gui_click="act_on_line_special_ingredient", item_category="ingredient", line_id=line.id,
-        item_index=index, on_gui_hover="set_tooltip", context="production_table"}
+        item_index=index, on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="production_table"}
     local button = parent_flow.add{type="sprite-button", tags=tags, sprite=item.proto.sprite, number=button_number,
         style="fflib_slot_button_cyan_small", mouse_button_filter={"left-and-right"}, raise_hover_events=true}
     metadata.tooltips[button.index] = tooltip
@@ -598,7 +598,7 @@ function builders.ingredients(line, parent_flow, metadata)
 
         local number_line = (number_tooltip) and {"", "\n", number_tooltip} or ""
         local tooltip = {"", name_line, temperature_line, priority_line, number_line, satisfaction_line}
-        local tags = {mod="fp", on_gui_hover="set_tooltip", context="production_table"}
+        local tags = {mod="fp", on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="production_table"}
 
         if proto.type ~= "entity" then
             table.insert(tooltip, {"", "\n", MODIFIER_ACTIONS["act_on_line_ingredient"].tooltip})

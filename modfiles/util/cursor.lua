@@ -487,4 +487,136 @@ function _cursor.handle_item_click(player, item_proto, amount)
     add_to_item_combinator(player, blueprint_entity--[[@as BlueprintEntity?]], item_proto, amount)
 end
 
+-- True pipette for an item/fluid prototype through the engine's smart pipette,
+-- exactly like pressing Q in vanilla: items come from the inventory (or as a
+-- ghost), fluids become a fluid signal cursor usable in pump filters,
+-- combinator conditions, etc.
+-- Distinct from handle_item_click (the "put into cursor" action), which builds
+-- a constant combinator or sets logistic filters instead.
+---@param player LuaPlayer
+---@param proto FPItemPrototype | FPFuelPrototype
+function _cursor.pipette_item(player, proto)
+    if proto.type == "fluid" then
+        local fluid_proto = prototypes.fluid[proto.base_name or proto.name]
+        -- LuaPlayer::pipette is recent; on older versions this property access
+        -- errors, which the dispatcher's pcall turns into a silent no-op
+        if fluid_proto and player.pipette ~= nil then
+            player.clear_cursor()
+            player.pipette(fluid_proto)
+        end
+        return
+    end
+    if proto.type ~= "item" then return end
+
+    local name = proto.base_name or proto.name
+    local item_proto = prototypes.item[name]
+    local cursor = player.cursor_stack
+    if not item_proto or not (cursor and cursor.valid) then return end
+
+    player.clear_cursor()
+    if player.pipette ~= nil then
+        if player.pipette(item_proto, nil, true) then return end
+    else  -- fallback for engine versions without LuaPlayer::pipette
+        local removed = player.remove_item({name=name, count=item_proto.stack_size})
+        if removed > 0 then
+            player.cursor_stack.set_stack({name=name, count=removed})
+            return
+        end
+    end
+    player.cursor_ghost = {name=name, quality="normal"}
+end
+
+-- True pipette for a module (with quality) through the engine's smart
+-- pipette, falling back to manual inventory handling on older versions.
+---@param player LuaPlayer
+---@param module Module
+function _cursor.pipette_module(player, module)
+    local name, quality = module.proto.name, module.quality_proto.name
+    local item_proto = prototypes.item[name]
+    local cursor = player.cursor_stack
+    if not item_proto or not (cursor and cursor.valid) then return end
+
+    player.clear_cursor()
+    if player.pipette ~= nil then
+        if player.pipette(item_proto, quality, true) then return end
+    else  -- fallback for engine versions without LuaPlayer::pipette
+        local removed = player.remove_item({name=name, count=item_proto.stack_size, quality=quality})
+        if removed > 0 then
+            player.cursor_stack.set_stack({name=name, count=removed, quality=quality})
+            return
+        end
+    end
+    player.cursor_ghost = {name=name, quality=quality}
+end
+
+---@class PipetteData
+---@field action string
+---@field tags Tags
+
+-- Stores the hovered button for Q-pipette if its action supports pipette.
+-- NB: "pipette" is a display-only shortcut (shortcut="Q", never produced by a
+-- mouse click), so it only ever fires through the fp_pipette custom-input.
+---@param player LuaPlayer
+---@param action_name string
+---@param tags Tags
+function _cursor.store_pipette(player, action_name, tags)
+    if MODIFIER_ACTIONS == nil then return end
+    local action_table = MODIFIER_ACTIONS[action_name]
+    if not action_table or not action_table.actions then
+        lib.globals.ui_state(player).pipette_data = nil
+        return
+    end
+    for _, action in ipairs(action_table.actions) do
+        if action.name == "pipette" then
+            local tags_copy = {}
+            for k, v in pairs(tags) do tags_copy[k] = v end
+            lib.globals.ui_state(player).pipette_data = {action=action_name, tags=tags_copy}
+            return
+        end
+    end
+    -- Hovered action doesn't support pipette, so clear any previous hover
+    lib.globals.ui_state(player).pipette_data = nil
+end
+
+---@param player LuaPlayer
+function _cursor.clear_pipette(player)
+    lib.globals.ui_state(player).pipette_data = nil
+end
+
+-- Triggers the pipette action for the given pipette data. Returns true when handled.
+-- Takes a snapshot (rather than reading live hover state) so the Q-press
+-- handler can run this a tick later (custom-inputs with consuming="none" fire
+-- before the vanilla game event, so running immediately would let vanilla
+-- pipette/clear-cursor wipe the result).
+---@param player LuaPlayer
+---@param pipette_data PipetteData
+---@return boolean handled
+function _cursor.try_pipette_data(player, pipette_data)
+    if not pipette_data or MODIFIER_ACTIONS == nil then return false end
+
+    local action_table = MODIFIER_ACTIONS[pipette_data.action]
+    if not action_table then return false end
+
+    local pipette_action = nil
+    for _, action in ipairs(action_table.actions) do
+        if action.name == "pipette" then pipette_action = action; break end
+    end
+    if not pipette_action then return false end
+
+    -- Validate that referenced objects still exist to avoid acting on stale hovers
+    for key, value in pairs(pipette_data.tags) do
+        if type(key) == "string" and key:sub(-3) == "_id" and type(value) == "number" then
+            local object = OBJECT_INDEX[value]
+            if object == nil then return false end
+        end
+    end
+
+    if not lib.actions.allowed(pipette_action.limitations, lib.actions.current_limitations(player)) then
+        return false
+    end
+
+    local success, _ = pcall(action_table.handler, player, pipette_data.tags, "pipette")
+    return success
+end
+
 return _cursor

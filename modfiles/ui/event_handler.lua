@@ -266,7 +266,8 @@ local player_events = {
     "fp_confirm_dialog",
     "fp_confirm_gui",
     "fp_focus_searchfield",
-    "fp_toggle_calculator"
+    "fp_toggle_calculator",
+    "fp_pipette"
 }  ---@type (defines.events | string)[]
 
 -- Events generated at runtime have no name of their own, so they need to be named manually
@@ -277,7 +278,8 @@ local custom_event_names = {
 local player_timeouts = {
     fp_refresh_production = 20,
     fp_confirm_dialog = 20,
-    fp_confirm_gui = 20
+    fp_confirm_gui = 20,
+    fp_pipette = 20
 }  ---@type table<string, MapTick>
 
 local special_player_handlers = {}

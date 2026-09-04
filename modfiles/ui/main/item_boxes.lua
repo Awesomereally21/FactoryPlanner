@@ -91,7 +91,7 @@ local function refresh_item_box(player, factory, show_floor_items, item_category
                 satisfaction_line, "\n", MODIFIER_ACTIONS[action].tooltip}
 
             local tags = {mod="fp", on_gui_click=action, item_category=item_category, item_id=product.id,
-                on_gui_hover="set_tooltip", context="item_boxes"}  ---@type HandleItemBoxClickTags
+                on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="item_boxes"}  ---@type HandleItemBoxClickTags
             local button = table_items.add{type="sprite-button", tags=tags--[[@as Tags]], number=amount, style=style,
                 sprite=product.proto.sprite, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
             tooltips.item_boxes[button.index] = tooltip
@@ -129,7 +129,7 @@ local function refresh_item_box(player, factory, show_floor_items, item_category
                 "\n", MODIFIER_ACTIONS[action].tooltip}
 
             local tags = {mod="fp", on_gui_click=action, item_category=item_category, item_id=item.id, item_index=index,
-                on_gui_hover="set_tooltip", context="item_boxes"}  ---@type HandleItemBoxClickTags
+                on_gui_hover="set_tooltip", on_gui_leave="clear_pipette", context="item_boxes"}  ---@type HandleItemBoxClickTags
             local button = table_items.add{type="sprite-button", tags=tags--[[@as Tags]], number=amount, style=style,
                 sprite=item.proto.sprite, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
             tooltips.item_boxes[button.index] = tooltip
@@ -229,6 +229,9 @@ local function handle_item_button_click(player, tags, action)
     elseif action == "put_into_cursor" then
         local amount = (item.class == "TLProduct") and item:get_required_amount() or item.amount
         lib.cursor.handle_item_click(player, item.proto--[[@as FPItemPrototype]], amount)
+
+    elseif action == "pipette" then
+        lib.cursor.pipette_item(player, item.proto--[[@as FPItemPrototype]])
 
     elseif action == "factorysearch" then
         local name = (item.proto.temperature) and item.proto.base_name or item.proto.name
@@ -340,6 +343,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
@@ -361,6 +365,7 @@ listeners.gui = {
             actions_table = {
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_item_button_click
@@ -371,6 +376,7 @@ listeners.gui = {
                 add_recipe = {shortcut="left", limitations={archive_open=false}, show=true},
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_item_button_click
@@ -381,6 +387,7 @@ listeners.gui = {
                 add_recipe = {shortcut="left", limitations={archive_open=false}, show=true},
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_item_button_click

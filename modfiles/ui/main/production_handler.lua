@@ -121,7 +121,7 @@ local function handle_machine_click(player, tags, action)
     local machine = OBJECT_INDEX[tags.machine_id]  ---@as Machine
     local line = machine.parent
 
-    if action == "put_into_cursor" then
+    if action == "put_into_cursor" or action == "pipette" then
         local success = lib.cursor.set_entity(player, line, machine)
         if success then main_dialog.toggle(player) end
 
@@ -167,7 +167,7 @@ local function handle_beacon_click(player, tags, action)
     local beacon = OBJECT_INDEX[tags.beacon_id]  ---@as Beacon
     local line = beacon.parent
 
-    if action == "put_into_cursor" then
+    if action == "put_into_cursor" or action == "pipette" then
         local success = lib.cursor.set_entity(player, line, beacon)
         if success then main_dialog.toggle(player) end
 
@@ -238,6 +238,9 @@ local function handle_module_click(player, tags, action)
         module_set:normalize({effects=true})
         solver.update(player)
         lib.gui.run_refresh(player, "production")
+
+    elseif action == "pipette" then
+        lib.cursor.pipette_module(player, module)
 
     elseif action == "factorysearch" then
         lib.open_in_factorysearch(player, "item", module.proto.name)
@@ -333,6 +336,9 @@ local function handle_item_click(player, tags, action)
     elseif action == "put_into_cursor" then
         lib.cursor.handle_item_click(player, item.proto, item.amount)
 
+    elseif action == "pipette" then
+        lib.cursor.pipette_item(player, item.proto)
+
     elseif action == "factorysearch" then
         local name = item.proto.name
         if item.proto.temperature then name = item.proto.base_name end
@@ -385,6 +391,9 @@ local function handle_fuel_click(player, tags, action)
 
     elseif action == "put_into_cursor" then
         lib.cursor.handle_item_click(player, fuel.proto--[[@as FPFuelPrototype]], fuel.amount)
+
+    elseif action == "pipette" then
+        lib.cursor.pipette_item(player, fuel.proto--[[@as FPFuelPrototype]])
 
     elseif action == "factorysearch" then
         lib.open_in_factorysearch(player, fuel.proto.type, fuel.proto.name)
@@ -443,6 +452,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
@@ -460,6 +470,7 @@ listeners.gui = {
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 delete = {shortcut="control-right", limitations={archive_open=false}},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},        
                 factoriopedia = {shortcut="alt-left"}
             },
@@ -476,6 +487,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 delete = {shortcut="control-right", limitations={archive_open=false}},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
@@ -487,6 +499,7 @@ listeners.gui = {
                 prioritize = {shortcut="control-right", limitations={archive_open=false, sequential_solver=true}},
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
@@ -503,6 +516,7 @@ listeners.gui = {
                 add_recipe_below = {limitations={archive_open=false}},
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
@@ -534,6 +548,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
@@ -552,6 +567,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = function(player, tags, action)
@@ -565,6 +581,7 @@ listeners.gui = {
             actions_table = {
                 copy = {shortcut="shift-right"},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = function(player, tags, action)
@@ -583,6 +600,7 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 paste = {shortcut="shift-left", limitations={archive_open=false}},
                 put_into_cursor = {shortcut="alt-right"},
+                pipette = {shortcut="Q", show=true},
                 factorysearch = {shortcut="control-alt-shift-left"},
                 factoriopedia = {shortcut="alt-left"}
             },
